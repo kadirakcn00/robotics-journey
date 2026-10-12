@@ -24,7 +24,7 @@ ros2 run demo_nodes_cpp talker
 ros2 run demo_nodes_cpp listener
 ```
 
-<!-- ![Talker_Listener](images/talker_listener.png) -->
+![Talker_Listener](images/talker_listener.png)
 
 ```mermaid
 graph LR
