@@ -32,3 +32,22 @@ graph LR
 ```
 
 
+##2.Topic 
+**Tanım:** Node'ları bağlayan yollar olarak düşünebiliriz. Aradaki haberleşmeyi sağlar. 
+Ör: Talker ve listener örneğinde /chatter topictir. 
+
+**Komutlar:**
+```bash
+ros2 topic list 
+ros2 topic info /chatter 
+ros2 topic echo /chatter
+ros2 interface show std_msg/msg/String 
+```
+ros2 topic list: Adında geçtiği üzere topicleri listeler. 
+ros2 topic info /chatter : Bu topic üzerinde kaç tane subscriber ve publisher geçtiğini listeler. 
+ros2 topic echo /chatter : Echo komutudur. Yankı odası gibi çalışır ve yayınlanan içeriği burda görebiliriz.
+ros2 interface show std_msgs/msg/String : Bu komut mesaj türünü gösterir. Adı geçtiği üzere bu publisher String yayınlar. 
+
+**Görsel:**
+
+
