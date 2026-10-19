@@ -55,3 +55,23 @@ ros2 interface show std_msgs/msg/String : Bu komut mesaj türünü gösterir. Ad
 **Görsel:**
 
 
+##3.Service and Client 
+**Service:** Tek seferlik verileri bize sunar. Anlık akan 1 milyon veriye değil de sadece sabit veriye ihtiyacımız varsa kullanırız. Örneğin sıcaklık verisi yada sabit zemindeki basınç verisi. 
+
+**Client:** Client service komut vermemizi sağlar. Müşteri ---> Uygulama ilişkisi. Toplama işleminde a ve b değeri atamam gibi.
+
+Aşağıdaki görsel örnek bir toplama service'ı ve emir veren client kodudur
+
+**Görsel:**
+
+![Service-Client](images/service_client.png)
+
+
+**Komutlar:** 
+```bash
+ros2 service list
+ros2 service type /add_two_ints
+ros2 interface show example_interfaces/srv/AddTwoInts
+```
+
+
