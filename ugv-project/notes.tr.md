@@ -350,3 +350,121 @@ Her yeni terminalde önce `source /opt/ros/foxy/setup.bash` yapmayı unutma.
 
 ---
 
+# M2 : TF2 ve Odometri 
+
+
+**Koordinat Çerçevesi Kavramı**
+
+Koordinat çerçevesinde üç temel eksen bulunur: 
+
+X: İleri-geri 
+Y: Sağ-Sol
+Z: Yukarı-aşağı 
+
+
+**Örnek:** Robot sağa-sola veya ileri-geri hareket yaptığında burda robotun koordinat çevresi değişir. 
+
+## base_link , odom , map 
+
+**base_link**
+
+Robotun gövdesine bağlanan koordinat çerçevesidir. Robot ileri gider base_link'te onunla beraber hareket eder. 
+
+**odom**
+
+Robotun hareketini takip etmek için kullanılan koordinat çerçevesidir. Odometri, robotun konum ve hareketlerinde değişimleri tahmin etmede kullanılır.
+
+
+**map(Harita Referansı)**
+
+Robotun hareketini harita üzerinde gösteren koordinat çerçevesidir. SLAM veya başka bir konum belirleme sistemi , robotun haritadaki konumunu tahmin etmeye yardımcı olabilir.
+
+
+| Koordinat çerçevesi | Ne anlatır? | Basit örnek |
+|---|---|---|
+| `base_link` | Robotun kendisine bağlı konum ve yönler | Gövdeye göre kamera nerede? |
+| `odom` | Hareket boyunca takip edilen konum | Başlangıçtan beri ne kadar ilerledik? |
+| `map` | Haritaya göre konum | Haritada hangi noktadayız? |
+
+
+Üçünün ilişkileri şu şekildedir; 
+
+map → odom → base_link
+
+## TF Bilgisini Robot Modelde Kontrol Etmek 
+
+Önce topic bilgisini alırız: 
+
+```bash 
+ros2 topic list | grep tf 
+```
+
+
+![ros2_topic_list](tf2.png)
+
+---
+
+Sonra TF mesajlarına bakarız : 
+
+```bash 
+ros2 topic echo /tf 
+```
+
+
+![ros2_topic_list](tf2_echo.png)
+
+
+**Burdaki parçalar bize hangi bilgileri veriyor ?**
+
+**1. frame_id: base_link**
+
+Referans koordinat çerçevesinin robotun gövdesinde olduğunu söylüyor. Yani referans noktamızı base_link'e göre alıyoruz
+
+**2. child_frame_id: right_front_wheel**
+
+Hedef çerçevesinde sağ ön tekerleğin olduğunu gösterir. Yani sağ ön tekerleğin koordinat çerçevesi base_link'e bağlı
+
+**3. translation: Tekerlek Nerde?**
+
+translation:
+  x: 0.16
+  y: -0.17
+  z: 0.07
+  
+  Tekerlek konumunu gösterir. 
+
+
+**4. rotation: Tekerlek Hangi Yönde?**
+
+rotation:
+  x: 0.0
+  y: 0.0
+  z: 0.0
+  w: 1.0
+  
+  Ek bir hareket görünmüyor çünkü aracımız sabit bekliyor. 
+**5. stamp: Bu Dönüşüm Ne Zaman Yayınlandı?**
+
+stamp:
+  sec: 1792685855
+  nanosec: 236565646
+  
+Bu alan, dönüşümün zaman bilgisini taşır.
+- sec: Saniye bölümü
+- nanosec: Saniyenin milyarda biri cinsinden ek süre
+
+Zaman bilgisi özellikle hareketli robotlarda önemlidir. Çünkü sensör verilerini ve robotun konumunu aynı zaman anına göre değerlendirmek iyi olur. 
+  
+---
+/tf_static mesajlarını da echo yöntemiyle görüntülüyebiliriz.
+
+```bash 
+ros2 topic echo /tf_static
+```
+
+![ros2_topic_list](tf2_2.png)
+
+
+ 
+
+
