@@ -400,7 +400,7 @@ ros2 topic list | grep tf
 ```
 
 
-![ros2_topic_list](tf2.png)
+![ros2_topic_list](images/tf2.png)
 
 ---
 
@@ -411,7 +411,7 @@ ros2 topic echo /tf
 ```
 
 
-![ros2_topic_list](tf2_echo.png)
+![ros2_topic_list](images/tf2_echo.png)
 
 
 **Burdaki parçalar bize hangi bilgileri veriyor ?**
@@ -462,7 +462,7 @@ Zaman bilgisi özellikle hareketli robotlarda önemlidir. Çünkü sensör veril
 ros2 topic echo /tf_static
 ```
 
-![ros2_topic_list](tf2_2.png)
+![ros2_topic_list](images/tf2_2.png)
 
 
  
