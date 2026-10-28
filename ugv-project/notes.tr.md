@@ -859,21 +859,6 @@ Ancak mevcut kodumuz yalnızca tahmini TF dönüşümü yayınlar. Robot modelin
 
 ---
 
-## 8. Mevcut Kodun Sınırları
-
-Bu aşamada kodun ne yaptığını ve ne yapmadığını ayırt etmeliyiz.
-
-1. **Gerçek sensör odometrisi değildir.** Tekerlek enkoderlerinden veya IMU'dan veri alınmıyor. Hesaplama yalnızca hız komutlarına dayanıyor.
-
-2. **Hız komutları zaman aşımına uğramıyor.** Son komut `0.2 m/s` ise yeni bir mesaj gelmediğinde düğüm bu hızı kullanmaya devam ediyor. Daha güvenli bir kontrol için komut zaman aşımı eklenmelidir.
-
-3. **Hareket hesabı yaklaşık sonuç verir.** Kod, küçük zaman adımlarıyla basitleştirilmiş bir hareket modeli kullanır.
-
-4. **`map` dönüşümü üretilmiyor.** Kod yalnızca `odom → base_link` dönüşümünü yayınlıyor. `map → odom` dönüşümü için ayrıca bir yerelleştirme veya haritalama sistemi gerekir.
-
-5. **TF çakışmalarına dikkat edilmelidir.** Aynı koordinat çerçevesi ilişkisini birden fazla düğümün yayınlaması tutarsız sonuçlara yol açabilir. Mevcut projede `odom → base_link` dönüşümünü hangi düğümün yayınladığını takip etmeliyiz.
-
-Bu sınırlamalar, kodun öğrenme amacıyla kullanılmasına engel değildir. Aksine, gerçek bir robotik sistemde hangi parçaların ayrıca geliştirilmesi gerektiğini gösterir.
 
  
 
