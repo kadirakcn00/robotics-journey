@@ -464,6 +464,416 @@ ros2 topic echo /tf_static
 
 ![ros2_topic_list](images/tf2_2.png)
 
+## 5. İlk Odometri Düğümümüz: `cmd_vel` Okumak
+
+İlk Python kodumuz, `cmd_vel` topic'ini dinleyerek gelen hız komutlarını ekrana yazdırır.
+
+### Kod
+
+```python
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Twist
+
+
+class OdomNode(Node):
+    def __init__(self):
+        super().__init__('odom_node')
+
+        self.sub = self.create_subscription(
+            Twist,
+            'cmd_vel',
+            self.cmd_callback,
+            10
+        )
+
+    def cmd_callback(self, msg):
+        self.get_logger().info(
+            f'v = {msg.linear.x}, w = {msg.angular.z}'
+        )
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = OdomNode()
+
+    rclpy.spin(node)
+
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()
+```
+
+### 5.1. Kullanılan kütüphaneler
+
+**`rclpy`**
+
+Python ile ROS 2 düğümleri geliştirmemizi sağlar.
+
+**`Node`**
+
+ROS 2 düğümümüzün temel sınıfıdır.
+
+**`Twist`**
+
+Doğrusal ve açısal hız komutlarını taşımak için kullanılan mesaj türüdür.
+
+### 5.2. Düğümü oluşturmak
+
+```python
+super().__init__('odom_node')
+```
+
+ROS 2 düğümünün adını `odom_node` olarak belirler.
+
+### 5.3. Subscription oluşturmak
+
+```python
+self.sub = self.create_subscription(
+    Twist,
+    'cmd_vel',
+    self.cmd_callback,
+    10
+)
+```
+
+Bu satır, `cmd_vel` topic'ine abone olur.
+
+Parametrelerin anlamları:
+
+- `Twist`: Beklenen mesaj türü.
+- `cmd_vel`: Dinlenecek topic.
+- `self.cmd_callback`: Mesaj geldiğinde çalıştırılacak fonksiyon.
+- `10`: Aboneliğin mesaj kuyruğu derinliği.
+
+### 5.4. Hız değerlerini okumak
+
+```python
+def cmd_callback(self, msg):
+    self.get_logger().info(
+        f'v = {msg.linear.x}, w = {msg.angular.z}'
+    )
+```
+
+Burada:
+
+- `msg.linear.x`: X eksenindeki doğrusal hız.
+- `msg.angular.z`: Z ekseni etrafındaki açısal hız.
+
+ROS'ta bu değerler standart olarak doğrusal hız için metre/saniye, açısal hız için radyan/saniye birimleriyle kullanılır.
+
+Bu ilk kod, hızları kullanarak konum hesaplamaz. Yalnızca gelen değerleri ekrana yazdırır.
+
+---
+
+## 6. İkinci Odometri Düğümümüz: Konum Tahmini ve TF Yayınlama
+
+İkinci kodumuz, ilk koddan farklı olarak hız komutlarını zaman boyunca işler.
+
+Bu kodun amacı:
+
+1. `cmd_vel` üzerinden hız komutlarını almak.
+2. Başlangıç konumunu sıfır kabul etmek.
+3. Hız ve geçen süre üzerinden yaklaşık konum hesaplamak.
+4. `odom → base_link` dönüşümünü TF üzerinden yayınlamak.
+
+Bu yaklaşım, odometrinin temel mantığını öğrenmek için hazırlanmış basitleştirilmiş bir modeldir.
+
+### 6.1. Kullanılan kütüphaneler
+
+```python
+import math
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import Twist, TransformStamped
+from tf2_ros import TransformBroadcaster
+```
+
+- `math`: Trigonometrik hesaplamalar için kullanılır.
+- `rclpy`: ROS 2 Python arayüzüdür.
+- `Node`: ROS 2 düğüm sınıfıdır.
+- `Twist`: Hız komutlarını taşır.
+- `TransformStamped`: Zaman damgası ve koordinat dönüşümü bilgilerini taşır.
+- `TransformBroadcaster`: Dinamik TF dönüşümlerini yayınlar.
+
+### 6.2. Başlangıç değişkenleri
+
+```python
+self.x = 0.0
+self.y = 0.0
+self.theta = 0.0
+
+self.v = 0.0
+self.w = 0.0
+
+self.last_time = self.get_clock().now()
+```
+
+Değişkenlerin görevleri:
+
+| Değişken    | Anlamı                                 |
+| ----------- | -------------------------------------- |
+| `x`         | Tahmini X konumu                       |
+| `y`         | Tahmini Y konumu                       |
+| `theta`     | Tahmini yönelim açısı                  |
+| `v`         | Son alınan doğrusal hız                |
+| `w`         | Son alınan açısal hız                  |
+| `last_time` | Bir önceki güncellemenin zaman bilgisi |
+
+Başlangıçta robotun konumu ve yönelimi sıfır kabul edilir.
+
+### 6.3. TF yayınlayıcısını oluşturmak
+
+```python
+self.tf_broadcaster = TransformBroadcaster(self)
+```
+
+Bu nesne, düğümün TF dönüşümleri yayınlamasını sağlar.
+
+### 6.4. Zamanlayıcı oluşturmak
+
+```python
+self.timer = self.create_timer(0.05, self.update)
+```
+
+`update()` fonksiyonu yaklaşık her 0,05 saniyede bir çağrılır.
+
+Hesaplama:
+
+`1 / 0.05 = 20 Hz`
+
+Yani düğüm, normal koşullarda saniyede yaklaşık 20 kez konumunu güncellemeye çalışır.
+
+### 6.5. Gelen hızları saklamak
+
+```python
+def cmd_callback(self, msg):
+    self.v = msg.linear.x
+    self.w = msg.angular.z
+```
+
+Bu fonksiyon yeni bir hız komutu geldiğinde doğrusal ve açısal hızları günceller.
+
+Burada önemli bir nokta vardır: Kod, yeni bir mesaj gelmediğinde hızları otomatik olarak sıfırlamaz. Son alınan değerler değişene kadar kullanılmaya devam eder.
+
+### 6.6. Geçen süreyi hesaplamak
+
+```python
+now = self.get_clock().now()
+
+dt = (now - self.last_time).nanoseconds / 1e9
+
+self.last_time = now
+```
+
+`dt`, iki güncelleme arasındaki süreyi saniye cinsinden hesaplar.
+
+Nanosecond değerini saniyeye çevirmek için `1e9`, yani bir milyar kullanılır.
+
+Örneğin iki güncelleme arasında 0,05 saniye geçtiyse `dt` yaklaşık `0.05` olur.
+
+Gerçek zamanlama gecikebileceğinden bu değerin her zaman tam olarak 0,05 olması garanti değildir.
+
+### 6.7. Konumu güncellemek
+
+```python
+self.x += self.v * math.cos(self.theta) * dt
+self.y += self.v * math.sin(self.theta) * dt
+self.theta += self.w * dt
+```
+
+Bu bölüm, kodun hareket hesabını yapan kısmıdır.
+
+Kullanılan basitleştirilmiş diferansiyel hareket modeli:
+
+- X yönündeki hız: `v * cos(theta)`
+- Y yönündeki hız: `v * sin(theta)`
+- Yönelim değişim hızı: `w`
+
+Bu hızlar, geçen süreyle çarpılarak yaklaşık konum değişimine dönüştürülür.
+
+#### Örnek: Düz ilerleme
+
+Başlangıçta:
+
+```text
+x = 0
+y = 0
+theta = 0
+v = 0.2 m/s
+w = 0 rad/s
+```
+
+Yönelim sıfır olduğu için:
+
+`cos(0) = 1`
+
+`sin(0) = 0`
+
+Yaklaşık 0,05 saniyelik bir güncellemede:
+
+`Δx = 0.2 × 1 × 0.05 = 0.01 m`
+
+`Δy = 0.2 × 0 × 0.05 = 0 m`
+
+Robotun tahmini konumu X yönünde yaklaşık 1 cm ilerler.
+
+Bu işlem tekrarlandıkça X konumu artar.
+
+#### Örnek: Dönerek ilerleme
+
+Doğrusal hız `0.2 m/s`, açısal hız `0.5 rad/s` olduğunda robot hem ileri gider hem de yönelim açısı değişir.
+
+Kod, yönelim açısını her güncellemede değiştirir. Sonraki konum hesaplamalarında bu yeni açı kullanılır.
+
+Bu yöntem öğrenme amacıyla yeterlidir; ancak adım adım sayısal integrasyon yaptığı için hesaplanan konum yaklaşık değerdir.
+
+### 6.8. Transform mesajını hazırlamak
+
+```python
+t = TransformStamped()
+
+t.header.stamp = now.to_msg()
+t.header.frame_id = 'odom'
+t.child_frame_id = 'base_link'
+```
+
+Bu bölüm, `odom → base_link` dönüşüm mesajını oluşturur.
+
+- `header.stamp`: Dönüşümün zaman damgası.
+- `header.frame_id`: Referans çerçevesi, `odom`.
+- `child_frame_id`: Konumu ifade edilen çerçeve, `base_link`.
+
+Bu nedenle mesaj, robot gövdesinin odometri referansına göre tahmini konumunu temsil eder.
+
+### 6.9. Konum değerlerini mesaja aktarmak
+
+```python
+t.transform.translation.x = self.x
+t.transform.translation.y = self.y
+t.transform.translation.z = 0.0
+```
+
+Hesaplanan X ve Y konumları mesaja aktarılır.
+
+Z değeri sıfır tutulduğu için robotun dikey yönde hareket etmediği varsayılır.
+
+### 6.10. Yönelim değerlerini hesaplamak
+
+```python
+t.transform.rotation.x = 0.0
+t.transform.rotation.y = 0.0
+
+t.transform.rotation.z = math.sin(self.theta / 2.0)
+t.transform.rotation.w = math.cos(self.theta / 2.0)
+```
+
+TF, yönelimi quaternion biçiminde ifade eder.
+
+Yalnızca Z ekseni etrafında dönüş olduğu varsayıldığında, yönelim açısı `theta` şu şekilde quaternion'a çevrilir:
+
+- `z = sin(theta / 2)`
+- `w = cos(theta / 2)`
+
+X ve Y bileşenleri sıfırdır.
+
+### 6.11. Dönüşümü yayınlamak
+
+```python
+self.tf_broadcaster.sendTransform(t)
+```
+
+Hazırlanan dönüşümün TF sistemi üzerinden yayınlanmasını sağlar.
+
+Böylece TF araçları, `odom` referansına göre `base_link` konumunu sorgulayabilir.
+
+---
+
+## 7. Terminal Komutları
+
+### 7.1. Doğrusal hız komutu göndermek
+
+```bash
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2}}"
+```
+
+Bu komut, `/cmd_vel` topic'ine tek bir `Twist` mesajı gönderir.
+
+Doğrusal X hızı `0.2 m/s` olarak belirlenir.
+
+Ancak `--once` yalnızca mesajın bir kez yayınlanmasını sağlar. Mesajın içindeki hızın sıfırlanmasını sağlamaz.
+
+Bizim Python düğümümüz son aldığı hızı sakladığı için yeni bir sıfır hız mesajı gelene kadar bu hızla hesaplama yapmayı sürdürür.
+
+### 7.2. Doğrusal hızı sıfırlamak
+
+```bash
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.0}}"
+```
+
+Bu komut, doğrusal hızı sıfırlayan bir mesaj gönderir.
+
+Açısal hız da sıfırlanmak isteniyorsa mesajda `angular.z: 0.0` değerinin açıkça belirtilmesi daha güvenlidir.
+
+### 7.3. İleri giderken dönmek
+
+```bash
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2}, angular: {z: 0.5}}"
+```
+
+Bu mesajda:
+
+- Doğrusal X hızı: `0.2 m/s`
+- Açısal Z hızı: `0.5 rad/s`
+
+olarak ayarlanır.
+
+Düğüm, bu değerleri kullanarak yaklaşık konum ve yönelim hesabı yapar.
+
+### 7.4. TF dönüşümünü kontrol etmek
+
+```bash
+ros2 run tf2_ros tf2_echo odom base_link
+```
+
+Bu komut, `odom` ile `base_link` arasındaki dönüşümü sorgular.
+
+Bunun çalışması için ilgili dönüşümün TF sisteminde yayınlanıyor olması gerekir. Dolayısıyla odometri düğümümüzün çalışıyor olması önemlidir.
+
+Çıktıda robotun tahmini konumunu ve yönelimini görebiliriz.
+
+### 7.5. Klavyeden hız komutu göndermek
+
+```bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
+
+Bu komut, klavyeden hız komutları gönderen teleoperasyon düğümünü başlatır.
+
+Klavyeden gönderilen komutlar `/cmd_vel` topic'ine ulaşır. Odometri düğümümüz bu mesajları alarak konum tahmini yapabilir.
+
+Ancak mevcut kodumuz yalnızca tahmini TF dönüşümü yayınlar. Robot modelini fiziksel olarak hareket ettirmek için ayrıca bir simülasyon veya hareket kontrol sistemi gerekir.
+
+---
+
+## 8. Mevcut Kodun Sınırları
+
+Bu aşamada kodun ne yaptığını ve ne yapmadığını ayırt etmeliyiz.
+
+1. **Gerçek sensör odometrisi değildir.** Tekerlek enkoderlerinden veya IMU'dan veri alınmıyor. Hesaplama yalnızca hız komutlarına dayanıyor.
+
+2. **Hız komutları zaman aşımına uğramıyor.** Son komut `0.2 m/s` ise yeni bir mesaj gelmediğinde düğüm bu hızı kullanmaya devam ediyor. Daha güvenli bir kontrol için komut zaman aşımı eklenmelidir.
+
+3. **Hareket hesabı yaklaşık sonuç verir.** Kod, küçük zaman adımlarıyla basitleştirilmiş bir hareket modeli kullanır.
+
+4. **`map` dönüşümü üretilmiyor.** Kod yalnızca `odom → base_link` dönüşümünü yayınlıyor. `map → odom` dönüşümü için ayrıca bir yerelleştirme veya haritalama sistemi gerekir.
+
+5. **TF çakışmalarına dikkat edilmelidir.** Aynı koordinat çerçevesi ilişkisini birden fazla düğümün yayınlaması tutarsız sonuçlara yol açabilir. Mevcut projede `odom → base_link` dönüşümünü hangi düğümün yayınladığını takip etmeliyiz.
+
+Bu sınırlamalar, kodun öğrenme amacıyla kullanılmasına engel değildir. Aksine, gerçek bir robotik sistemde hangi parçaların ayrıca geliştirilmesi gerektiğini gösterir.
 
  
 
