@@ -859,6 +859,176 @@ Ancak mevcut kodumuz yalnızca tahmini TF dönüşümü yayınlar. Robot modelin
 
 ---
 
+## 8.Odometri,Nav2 ve SLAM 
+
+### Nav2
+Sadece /odom topic'ini de kullanmak robotun konumu açısından eksik bilgi veriyor. Üstte yazdığım /odom topic'i sadece bize (konum+yön) bilgilerini verir. 
+
+Şimdi yapacağımız  "nav_msgs/Odometry" mesajı ile ne kadar hızla gittiğimizi de gösterir. 
+
+Nav2'nin hız kontrolcüleri robotun gerçek hızını bu topicten okur. 
+
+Aşağıdaki kodları /ugv_odometry/ugv_odometry/odom_node.py üzerine ekliyorum.
+
+**A.IMPORT KISMINA EKLE**
+```python
+from nav_msgs.msg import Odometry
+```
+**B.__init__ içine tf_broadcaster'in altına ekle**
+
+```python
+self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
+```
+**C.Uptade fonksiyonunun en altına ekle**
+
+```python
+        odom = Odometry()
+        odom.header.stamp = now.to_msg()
+        odom.header.frame_id = 'odom'
+        odom.child_frame_id = 'base_link'
+        odom.pose.pose.position.x = self.x
+        odom.pose.pose.position.y = self.y
+        odom.pose.pose.orientation.z = math.sin(self.theta / 2.0)
+        odom.pose.pose.orientation.w = math.cos(self.theta / 2.0)
+        odom.twist.twist.linear.x = self.v
+        odom.twist.twist.angular.z = self.w
+        self.odom_pub.publish(odom)
+```
+
+Bunları yaptıktan sonra colcon build ile kodu kaydet ; 
+
+```bash
+cd ~/Desktop/robotics-journey
+colcon build --packages-select ugv_odometry
+source install/setup.bash
+ros2 run ugv_odometry odom_node
+```
+
+Terminalde topiclerimizin değerini ölçelim ; 
+
+```bash
+ros2 topic info /odom
+ros2 topic hz /odom
+ros2 topic echo /odom
+```
+
+Topic info değerimiz mesaj tipimiz olmalı yani "msgs/msg/Odometry"
+
+Topic hz ise yayın hızımız timer değerimiz 0.05 olduğu için yaklaşık 20 Hz değeri görürüz.
+
+Topic echoda ise ; 
+
+eader:
+  stamp:
+    sec: 1793277451
+    nanosec: 599714739
+  frame_id: odom
+child_frame_id: base_link
+pose:
+  pose:
+    position:
+      x: 0.1941129012528342
+      y: 0.7524622240899774
+      z: 0.0
+    orientation:
+      x: 0.0
+      y: 0.0
+      z: -0.9713467705246945
+      w: -0.23766668128125656
+  covariance:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+twist:
+  twist:
+    linear:
+      x: 0.2
+      y: 0.0
+      z: 0.0
+    angular:
+      x: 0.0
+      y: 0.0
+      z: 0.5
+  covariance:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+
+Böyle uzun bir mesaj görürüz burda önemli olan pose ve twist değerlerimiz. 
+
+||Neyi Söyler?| Arabadan Örnek Verirsek|Çıktığımızdaki Karşılığı|
+|---|---|---|---|
+| pose | Nerede ve hangi yöne bakıyor | Ne kadar hızlı gidiyor ve dönüyor | Hız göstergesi ve direksiyonun dönme hızı | 
+| twist | Ne kadar hızlı gidiyor ve dönüyor | Hız göstergesi ve direksiyonun dönme hızı | linear.x: 0.2 (m/s), angular.z: 0.5 (rad/s) |
+
+
+
 
  
 
