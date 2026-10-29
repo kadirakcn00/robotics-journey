@@ -3,6 +3,8 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist, TransformStamped
 from tf2_ros import TransformBroadcaster
+from nav_msgs.msg import Odometry
+
 
 
 class OdomNode(Node):
@@ -11,6 +13,7 @@ class OdomNode(Node):
         self.sub = self.create_subscription(
             Twist, 'cmd_vel', self.cmd_callback, 10)
         self.tf_broadcaster = TransformBroadcaster(self)
+        self.odom_pub = self.create_publisher(Odometry,'Odom',10)
 
         self.x = 0.0
         self.y = 0.0
@@ -46,6 +49,18 @@ class OdomNode(Node):
         t.transform.rotation.z = math.sin(self.theta / 2.0)
         t.transform.rotation.w = math.cos(self.theta / 2.0)
         self.tf_broadcaster.sendTransform(t)
+
+        odom = Odometry()
+        odom.header.stamp = now.to_msg()
+        odom.header.frame_id = 'odom'
+        odom.child_frame_id = 'base_link'
+        odom.pose.pose.position.x = self.x
+        odom.pose.pose.position.y = self.y
+        odom.pose.pose.orientation.z = math.sin(self.theta / 2.0)
+        odom.pose.pose.orientation.w = math.cos(self.theta / 2.0)
+        odom.twist.twist.linear.x = self.v
+        odom.twist.twist.angular.z = self.w
+        self.odom_pub.publish(odom)
 
 
 def main(args=None):
