@@ -862,7 +862,7 @@ Ancak mevcut kodumuz yalnızca tahmini TF dönüşümü yayınlar. Robot modelin
 ## 8.Odometri,Nav2 ve SLAM 
 
 ### Nav2
-Sadece /odom topic'ini de kullanmak robotun konumu açısından eksik bilgi veriyor. Üstte yazdığım /odom topic'i sadece bize (konum+yön) bilgilerini verir. 
+Sadece odom node'undan /tf topic'ini de kullanmak robotun konumu açısından eksik bilgi veriyor. Üstte yazdığım /odom topic'i sadece bize (konum+yön) bilgilerini verir. 
 
 Şimdi yapacağımız  "nav_msgs/Odometry" mesajı ile ne kadar hızla gittiğimizi de gösterir. 
 
@@ -965,9 +965,25 @@ Böyle uzun bir mesaj görürüz burda önemli olan pose ve twist değerlerimiz.
 | pose | Nerede ve hangi yöne bakıyor | Ne kadar hızlı gidiyor ve dönüyor | Hız göstergesi ve direksiyonun dönme hızı | 
 | twist | Ne kadar hızlı gidiyor ve dönüyor | Hız göstergesi ve direksiyonun dönme hızı | linear.x: 0.2 (m/s), angular.z: 0.5 (rad/s) |
 
+**Odomu Rvizde Kullanmak ve Terminal Komutlarıyla Yön Vermek**
 
+Rvizde ekstra ekleyeceğimiz odometry sekmesi bulunuyor ve ana topic'i /odom yapınca ne tarafa gittiğimize dair izler görüyoruz. 
 
+Urdf konusunda rvizi ve robot_state_publisher kullanmıştık. 
 
+Bu terminal kodlarını kullanarak rvizi açtığımızda ; 
+
+Global Options Topic: /odom ,  
+
+Odometri Topic: /Odom yapıyoruz
+
+Bu komutu kullanarak robotumuzu hareket ettirdiğimizde
+```bash
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.0}, angular: {z: 0.0}}"
+```
  
+Böyle görünüyor; 
+
+![odometry](images/odometry.png)
 
 
