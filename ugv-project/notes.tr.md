@@ -918,109 +918,47 @@ Topic hz ise yayın hızımız timer değerimiz 0.05 olduğu için yaklaşık 20
 
 Topic echoda ise ; 
 
-eader:
-  stamp:
-    sec: 1793277451
-    nanosec: 599714739
-  frame_id: odom
-child_frame_id: base_link
-pose:
-  pose:
-    position:
-      x: 0.1941129012528342
-      y: 0.7524622240899774
-      z: 0.0
-    orientation:
-      x: 0.0
-      y: 0.0
-      z: -0.9713467705246945
-      w: -0.23766668128125656
-  covariance:
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-twist:
-  twist:
-    linear:
-      x: 0.2
-      y: 0.0
-      z: 0.0
-    angular:
-      x: 0.0
-      y: 0.0
-      z: 0.5
-  covariance:
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
-  - 0.0
+- eader:
+-  stamp:
+-    sec: 1793277451
+-    nanosec: 599714739
+-  frame_id: odom
+- child_frame_id: base_link
+- pose:
+-  pose:
+-    position:
+-      x: 0.1941129012528342
+-      y: 0.7524622240899774
+-      z: 0.0
+-    orientation:
+-      x: 0.0
+-      y: 0.0
+-      z: -0.9713467705246945
+-      w: -0.23766668128125656
+-  covariance:
+  - 0.0
+  - 0.0
+- twist:
+-   twist:
+-    linear:
+-      x: 0.2
+-      y: 0.0
+-      z: 0.0
+-    angular:
+-      x: 0.0
+-      y: 0.0
+-      z: 0.5
+-  covariance:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  
+---
 
 Böyle uzun bir mesaj görürüz burda önemli olan pose ve twist değerlerimiz. 
+
+**Plot ve Twist Ne Anlatır**
 
 ||Neyi Söyler?| Arabadan Örnek Verirsek|Çıktığımızdaki Karşılığı|
 |---|---|---|---|
