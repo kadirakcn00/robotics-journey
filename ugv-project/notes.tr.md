@@ -859,7 +859,7 @@ Ancak mevcut kodumuz yalnızca tahmini TF dönüşümü yayınlar. Robot modelin
 
 ---
 
-## 8.Odometri,Nav2 ve SLAM 
+## 8.Odometri ve Nav2 
 
 ### Nav2
 Sadece odom node'undan /tf topic'ini de kullanmak robotun konumu açısından eksik bilgi veriyor. Üstte yazdığım /odom topic'i sadece bize (konum+yön) bilgilerini verir. 
@@ -985,5 +985,104 @@ ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.0}, angul
 Böyle görünüyor; 
 
 ![odometry](images/odometry.png)
+
+
+# M3: Gazebo Simülasyonu, SLAM ve Haritalama
+
+## Inertial 
+
+Rvizde robotu fizik kurallarından bağımsız simüle ediyorduk. İşler gaseboda biraz değişiyor. Burda her linkin kütlesini ve atalet momenti denen kavramları bilmek zorunda. 
+
+Burda urdf dosyamızdaki inertial tagi devreye giriyor. 
+
+**mass:** Link'in kütlesi
+ 
+**inertia:** Link'in dönmeye karşı direnci ataletidir. Tork dönme etkisi ise atalet buna karşı oluşan kuvvettir. Çubuğun ortasından döndürmeye çalışmakla kenarından döndürmek ile olan farkı düşünebiliriz.
+
+```xml
+<inertial>
+	<mass value="5.0">
+	<inertia ixx = "0.0542" ixy="0" ixz="0" iyy="0.1208" iyz="0" izz="0.1417"/>
+</inertial>	 
+```
+
+**PEKİ Ixx , Ixy , Ixz , Iyy , Iyz, Izz Nedir?**
+
+Bunlar üç boyutlu uzaydaki ataletlerdir. Ixy , Ixz , Iyz simetrik bir robotumuz olduğu için 0 değerini alır. 
+
+Diğer değerlerin hesaplanma şekli aşağıdaki formülle yapılır;
+
+**Dikdörtgen Kutu İçin;**
+
+ixx = m/12 · (y² + z²)
+iyy = m/12 · (x² + z²)
+izz = m/12 · (x² + y²)
+
+Şasi: m = 5 kg, x = 0.5, y = 0.3, z = 0.2:
+
+ixx = 5/12 · (0.09 + 0.04) = 0.0542
+iyy = 5/12 · (0.25 + 0.04) = 0.1208
+izz = 5/12 · (0.25 + 0.09) = 0.1417
+
+**Urdf Dosyamıza Ekleyelim**
+1. base_link içine visual'ın altına ekleyelim.
+ 
+```urdf
+    <collision>
+      <geometry>
+        <box size="0.5 0.3 0.2"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="5.0"/>
+      <inertia ixx="0.0542" ixy="0" ixz="0" iyy="0.1208" iyz="0" izz="0.1417"/>
+    </inertial>
+```
+
+2. Tekerleğin içine yine visual'ın altına ekleyelim.
+
+```urdf
+    <collision>
+      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+      <geometry>
+        <cylinder radius="0.07" length="0.04"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.5"/>
+      <inertia ixx="0.000679" ixy="0" ixz="0" iyy="0.001225" iyz="0" izz="0.000679"/>
+    </inertial>
+```
+
+
+## Gaseboda Urdf Dosyamızı Çalıştırmak 
+
+1. Gaseboyu açalım ; 
+
+```bash
+source /opt/ros/foxy/setup.bash
+ros2 launch gazebo_ros gazebo.launch.py
+```
+
+2. Robotu ekleyelim
+
+```bash
+source /opt/ros/foxy/setup.bash
+ros2 run gazebo_ros spawn_entity.py -entity ugv -file ~/Desktop/ros2_ws/src/ugv_project/ugv_description/urdf/ugv.urdf -z 0.2
+```
+
+Ve böyle görünüyor;
+
+![gazebo](images/gazebo.png)
+
+
+
+ 
+
+
+
+
+
+
 
 
