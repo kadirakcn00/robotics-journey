@@ -394,7 +394,7 @@ Z: Yukarı-aşağı
 
 **Örnek:** Robot sağa-sola veya ileri-geri hareket yaptığında burda robotun koordinat çevresi değişir. 
 
-## base_link , odom , map 
+## 1.base_link , odom , map 
 
 **base_link**
 
@@ -421,7 +421,7 @@ Robotun hareketini harita üzerinde gösteren koordinat çerçevesidir. SLAM vey
 
 map → odom → base_link
 
-## TF Bilgisini Robot Modelde Kontrol Etmek 
+## 2.TF Bilgisini Robot Modelde Kontrol Etmek 
 
 Önce topic bilgisini alırız: 
 
@@ -494,7 +494,7 @@ ros2 topic echo /tf_static
 
 ![ros2_topic_list](images/tf2_2.png)
 
-## 5. İlk Odometri Düğümümüz: `cmd_vel` Okumak
+## 3. İlk Odometri Düğümümüz: `cmd_vel` Okumak
 
 İlk Python kodumuz, `cmd_vel` topic'ini dinleyerek gelen hız komutlarını ekrana yazdırır.
 
@@ -537,7 +537,7 @@ if __name__ == '__main__':
     main()
 ```
 
-### 5.1. Kullanılan kütüphaneler
+### 3.1. Kullanılan kütüphaneler
 
 **`rclpy`**
 
@@ -551,7 +551,7 @@ ROS 2 düğümümüzün temel sınıfıdır.
 
 Doğrusal ve açısal hız komutlarını taşımak için kullanılan mesaj türüdür.
 
-### 5.2. Düğümü oluşturmak
+### 3.2. Düğümü oluşturmak
 
 ```python
 super().__init__('odom_node')
@@ -559,7 +559,7 @@ super().__init__('odom_node')
 
 ROS 2 düğümünün adını `odom_node` olarak belirler.
 
-### 5.3. Subscription oluşturmak
+### 3.3. Subscription oluşturmak
 
 ```python
 self.sub = self.create_subscription(
@@ -579,7 +579,7 @@ Parametrelerin anlamları:
 - `self.cmd_callback`: Mesaj geldiğinde çalıştırılacak fonksiyon.
 - `10`: Aboneliğin mesaj kuyruğu derinliği.
 
-### 5.4. Hız değerlerini okumak
+### 3.4. Hız değerlerini okumak
 
 ```python
 def cmd_callback(self, msg):
@@ -599,7 +599,7 @@ Bu ilk kod, hızları kullanarak konum hesaplamaz. Yalnızca gelen değerleri ek
 
 ---
 
-## 6. İkinci Odometri Düğümümüz: Konum Tahmini ve TF Yayınlama
+## 4. İkinci Odometri Düğümümüz: Konum Tahmini ve TF Yayınlama
 
 İkinci kodumuz, ilk koddan farklı olarak hız komutlarını zaman boyunca işler.
 
@@ -612,7 +612,7 @@ Bu kodun amacı:
 
 Bu yaklaşım, odometrinin temel mantığını öğrenmek için hazırlanmış basitleştirilmiş bir modeldir.
 
-### 6.1. Kullanılan kütüphaneler
+### 4.1. Kullanılan kütüphaneler
 
 ```python
 import math
@@ -629,7 +629,7 @@ from tf2_ros import TransformBroadcaster
 - `TransformStamped`: Zaman damgası ve koordinat dönüşümü bilgilerini taşır.
 - `TransformBroadcaster`: Dinamik TF dönüşümlerini yayınlar.
 
-### 6.2. Başlangıç değişkenleri
+### 4.2. Başlangıç değişkenleri
 
 ```python
 self.x = 0.0
@@ -655,7 +655,7 @@ Değişkenlerin görevleri:
 
 Başlangıçta robotun konumu ve yönelimi sıfır kabul edilir.
 
-### 6.3. TF yayınlayıcısını oluşturmak
+### 4.3. TF yayınlayıcısını oluşturmak
 
 ```python
 self.tf_broadcaster = TransformBroadcaster(self)
@@ -663,7 +663,7 @@ self.tf_broadcaster = TransformBroadcaster(self)
 
 Bu nesne, düğümün TF dönüşümleri yayınlamasını sağlar.
 
-### 6.4. Zamanlayıcı oluşturmak
+### 4.4. Zamanlayıcı oluşturmak
 
 ```python
 self.timer = self.create_timer(0.05, self.update)
@@ -677,7 +677,7 @@ Hesaplama:
 
 Yani düğüm, normal koşullarda saniyede yaklaşık 20 kez konumunu güncellemeye çalışır.
 
-### 6.5. Gelen hızları saklamak
+### 4.5. Gelen hızları saklamak
 
 ```python
 def cmd_callback(self, msg):
@@ -689,7 +689,7 @@ Bu fonksiyon yeni bir hız komutu geldiğinde doğrusal ve açısal hızları g�
 
 Burada önemli bir nokta vardır: Kod, yeni bir mesaj gelmediğinde hızları otomatik olarak sıfırlamaz. Son alınan değerler değişene kadar kullanılmaya devam eder.
 
-### 6.6. Geçen süreyi hesaplamak
+### 4.6. Geçen süreyi hesaplamak
 
 ```python
 now = self.get_clock().now()
@@ -707,7 +707,7 @@ Nanosecond değerini saniyeye çevirmek için `1e9`, yani bir milyar kullanılı
 
 Gerçek zamanlama gecikebileceğinden bu değerin her zaman tam olarak 0,05 olması garanti değildir.
 
-### 6.7. Konumu güncellemek
+### 4.7. Konumu güncellemek
 
 ```python
 self.x += self.v * math.cos(self.theta) * dt
@@ -761,7 +761,7 @@ Kod, yönelim açısını her güncellemede değiştirir. Sonraki konum hesaplam
 
 Bu yöntem öğrenme amacıyla yeterlidir; ancak adım adım sayısal integrasyon yaptığı için hesaplanan konum yaklaşık değerdir.
 
-### 6.8. Transform mesajını hazırlamak
+### 4.8. Transform mesajını hazırlamak
 
 ```python
 t = TransformStamped()
@@ -779,7 +779,7 @@ Bu bölüm, `odom → base_link` dönüşüm mesajını oluşturur.
 
 Bu nedenle mesaj, robot gövdesinin odometri referansına göre tahmini konumunu temsil eder.
 
-### 6.9. Konum değerlerini mesaja aktarmak
+### 4.9. Konum değerlerini mesaja aktarmak
 
 ```python
 t.transform.translation.x = self.x
@@ -791,7 +791,7 @@ Hesaplanan X ve Y konumları mesaja aktarılır.
 
 Z değeri sıfır tutulduğu için robotun dikey yönde hareket etmediği varsayılır.
 
-### 6.10. Yönelim değerlerini hesaplamak
+### 4.10. Yönelim değerlerini hesaplamak
 
 ```python
 t.transform.rotation.x = 0.0
@@ -810,7 +810,7 @@ Yalnızca Z ekseni etrafında dönüş olduğu varsayıldığında, yönelim aç
 
 X ve Y bileşenleri sıfırdır.
 
-### 6.11. Dönüşümü yayınlamak
+### 4.11. Dönüşümü yayınlamak
 
 ```python
 self.tf_broadcaster.sendTransform(t)
@@ -822,9 +822,9 @@ Böylece TF araçları, `odom` referansına göre `base_link` konumunu sorgulaya
 
 ---
 
-## 7. Terminal Komutları
+## 5. Terminal Komutları
 
-### 7.1. Doğrusal hız komutu göndermek
+### 5.1. Doğrusal hız komutu göndermek
 
 ```bash
 ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2}}"
@@ -838,7 +838,7 @@ Ancak `--once` yalnızca mesajın bir kez yayınlanmasını sağlar. Mesajın i�
 
 Bizim Python düğümümüz son aldığı hızı sakladığı için yeni bir sıfır hız mesajı gelene kadar bu hızla hesaplama yapmayı sürdürür.
 
-### 7.2. Doğrusal hızı sıfırlamak
+### 5.2. Doğrusal hızı sıfırlamak
 
 ```bash
 ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.0}}"
@@ -848,7 +848,7 @@ Bu komut, doğrusal hızı sıfırlayan bir mesaj gönderir.
 
 Açısal hız da sıfırlanmak isteniyorsa mesajda `angular.z: 0.0` değerinin açıkça belirtilmesi daha güvenlidir.
 
-### 7.3. İleri giderken dönmek
+### 5.3. İleri giderken dönmek
 
 ```bash
 ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2}, angular: {z: 0.5}}"
@@ -863,7 +863,7 @@ olarak ayarlanır.
 
 Düğüm, bu değerleri kullanarak yaklaşık konum ve yönelim hesabı yapar.
 
-### 7.4. TF dönüşümünü kontrol etmek
+### 5.4. TF dönüşümünü kontrol etmek
 
 ```bash
 ros2 run tf2_ros tf2_echo odom base_link
@@ -875,7 +875,7 @@ Bunun çalışması için ilgili dönüşümün TF sisteminde yayınlanıyor olm
 
 Çıktıda robotun tahmini konumunu ve yönelimini görebiliriz.
 
-### 7.5. Klavyeden hız komutu göndermek
+### 5.5. Klavyeden hız komutu göndermek
 
 ```bash
 ros2 run teleop_twist_keyboard teleop_twist_keyboard
@@ -889,7 +889,7 @@ Ancak mevcut kodumuz yalnızca tahmini TF dönüşümü yayınlar. Robot modelin
 
 ---
 
-## 8.Odometri ve Nav2 
+## 6.Odometri ve Nav2 
 
 ### Nav2
 Sadece odom node'undan /tf topic'ini de kullanmak robotun konumu açısından eksik bilgi veriyor. Üstte yazdığım /odom topic'i sadece bize (konum+yön) bilgilerini verir. 
