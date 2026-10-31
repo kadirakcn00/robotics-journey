@@ -1076,10 +1076,88 @@ Ve böyle görünüyor;
 ![gazebo](images/gazebo.png)
 
 
+## Gaseboda Robotumuzu Hareket Ettirme ve <gazebo> tagi
 
+1. Bunun için URDF dosyamıza <gazebo> tagi açmamız lazım ;
+
+Ben ön ve arka tekerlekler için ayrı ayrı gazebo tagi kullandım 
+
+- Ön Tekerlekler İçin
+
+```urdf
+<gazebo>
+	<plugin name="front_wheel" filename="libgazebo_ros_diff_drive.so">
+    	<!-- Tekerlek Bilgisi -->
+        <left_joint>left_front_wheel_joint</left_joint>
+        <right_joint>right_front_wheel_joint</right_joint>
+        <wheel_separation>0.064</wheel_separation>
+        <wheel_diameter>0.098</wheel_diameter>
  
+        <!-- Limitimiz -->
+        <max_wheel_torque>200</max_wheel_torque>
+        <max_wheel_acceleration>10.0</max_wheel_acceleration>
+ 
+        <!-- Çıktı -->
+        <odometry_frame>odom</odometry_frame>
+        <robot_base_frame>base_link</robot_base_frame>
+ 
+        <publish_odom>true</publish_odom>
+        <publish_odom_tf>true</publish_odom_tf>
+        <publish_wheel_tf>true</publish_wheel_tf>
+ 
+	</plugin>
+  </gazebo>
+```
 
+- Arka Tekerlekler İçin ; 
 
+```urdf
+<gazebo>
+	<plugin name="back_wheel" filename="libgazebo_ros_diff_drive.so">
+    	<!-- Tekerlek Bilgisi -->
+        <left_joint>left_back_wheel_joint</left_joint>
+        <right_joint>right_back_wheel_joint</right_joint>
+        <wheel_separation>0.064</wheel_separation>
+        <wheel_diameter>0.098</wheel_diameter>
+ 
+        <!-- Limitimiz -->
+        <max_wheel_torque>200</max_wheel_torque>
+        <max_wheel_acceleration>10.0</max_wheel_acceleration>
+ 
+        <!-- Çıktı -->
+        <odometry_frame>odom</odometry_frame>
+        <robot_base_frame>base_link</robot_base_frame>
+ 
+        <publish_odom>true</publish_odom>
+        <publish_odom_tf>true</publish_odom_tf>
+        <publish_wheel_tf>true</publish_wheel_tf>
+ 
+	</plugin>
+  </gazebo>
+```
+
+Bunları hemen <robot> tagini kapatmadan bir üst satıra ekliyoruz. 
+
+Gazeboda robot projemizi açıyoruz ve şu komutları ayrı bir terminale topicimizi çalıştırmak için yazıyor ; 
+
+```bash
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2}}"
+```
+Durdurmak için ise;
+
+```bash
+ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.0}}"
+```
+ 
+komutu yazmamız yeterli.
+
+Eğer klavyeden yönetmek istiyorsak şu komutu yazmamız gerekicek ; 
+
+```bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
+
+![simulation](images/simulation.gif)
 
 
 
