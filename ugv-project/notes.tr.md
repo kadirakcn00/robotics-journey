@@ -19,7 +19,7 @@
   - [4. İkinci Odometri Düğümümüz: Konum Tahmini ve TF Yayınlama](#4-ikinci-odometri-düğümümüz-konum-tahmini-ve-tf-yayınlama)
   - [5. Terminal Komutları](#5-terminal-komutları)
   - [6. Odometri ve Nav2](#6-odometri-ve-nav2)
-- [M3: Gazebo Simülasyonu, SLAM ve Haritalama](#m3-gazebo-simülasyonu-slam-ve-haritalama)
+- [M3: Gazebo Simülasyonu,LIDAR,SLAM ve Haritalama](#m3-gazebo-simülasyonu-lidar-slam-ve-haritalama)
   - [Inertial](#inertial)
   - [Gaseboda Urdf Dosyamızı Çalıştırmak](#gaseboda-urdf-dosyamızı-çalıştırmak)
   - [Gaseboda Robotumuzu Hareket Ettirme ve Gazebo Tagi](#gaseboda-robotumuzu-hareket-ettirme-ve-gazebo-tagi)
@@ -1018,7 +1018,7 @@ Böyle görünüyor;
 ![odometry](images/odometry.png)
 
 
-# M3: Gazebo Simülasyonu, SLAM ve Haritalama
+# M3: Gazebo Simülasyonu,LIDAR,SLAM ve Haritalama 
 
 ## Inertial 
 
@@ -1189,6 +1189,131 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
 
 ![simulation](images/simulation.gif)
+
+## Robotumuza LIDAR Ekleme
+
+- Lidar etrafa lazer ışınları gönderir ve en yakın engele ne kadar uzakta olduğumuzu ölçer. 
+
+- Ölçümler sensor_msgs/LaserScan mesajı olarak yayınlanır. 
+
+- Aşağıda kullancağımız değerler yer alıyor;
+
+| Alan | Ne İfade Ediyor? | Bizdeki değeri |
+|---|---|---|
+| angle_min / angle_max | Taramanın başladığı ve bittiği açı | -π ile +π (tam tur) | 
+| angle_increment | İki ışın arası açı | 2π / 360 = 1° | 
+| range_min / range_max | Ölçebildiği en yakın ve en uzak mesafe | 0.12 m, 10 m | 
+| ranges[] | Her ışının ölçtüğü mesafe listesi | 360 sayı |
+
+
+1. Lidar Link'i ve Joint'i
+
+```urdf
+  <link name="lidar_link">
+    <visual>
+      <geometry>
+        <cylinder radius="0.04" length="0.05"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="0.04" length="0.05"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.0000608" ixy="0" ixz="0" iyy="0.0000608" iyz="0" izz="0.00008"/>
+    </inertial>
+  </link>
+
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0.1 0 0.125" rpy="0 0 0"/>
+  </joint>
+```
+
+- Burda şeklimiz **cylinder** seçtik çünkü üstte yassı bir silindir şeklinde şekil istiyoruz. 
+
+- Joint type'ımız **fixed** çünkü robotumuzda sabit durması lazım.
+
+2. Lidar Sensörü 
+
+```urdf
+  <gazebo reference="lidar_link">
+    <sensor type="ray" name="lidar_sensor">
+      <pose>0 0 0 0 0 0</pose>
+      <visualize>true</visualize>
+      <update_rate>10</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.12</min>
+          <max>10.0</max>
+          <resolution>0.01</resolution>
+        </range>
+      </ray>
+      <plugin name="lidar_plugin" filename="libgazebo_ros_ray_sensor.so">
+        <ros>
+          <remapping>~/out:=scan</remapping>
+        </ros>
+        <output_type>sensor_msgs/LaserScan</output_type>
+        <frame_name>lidar_link</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+```
+
+- Lidarımızın gazebodaki karşılığı bu urdf yığınıdır. 
+
+- Hangi tag ne işe yarıyor aşağıdaki tabloda yazdım
+
+| Tag | Ne İşe Yarar? |
+|---|---|
+| visualize | Gazebo’da lazer ışınlarını çizer, kontrol için kullanışlıdır |
+| update_rate | Saniyede tarama sayısı , Biz 10 dedik |
+| samples | Tam turda kaç ışın atacağımızı belirleriz , Biz 360 ışın atıyoruz yani her derece başı 1 tane|
+| range | Ölçüm aralığı |
+| remapping ~/out:=scan | Çıktıyı /scan topic’ine yönlendirir | 
+| frame_name |	Mesajın hangi TF çerçevesinde olduğunu söyler (lidar_link) | 
+
+
+3. Çalıştırma Aşaması 
+
+- Linklerimiz doğru yüklenmiş mi kontrol ediyoruz;
+
+```bash
+check_urdf ~/Desktop/ros2_ws/src/ugv_project/ugv_description/urdf/ugv.urdf
+```
+
+- Projemizi gazeboda çalıştırıyoruz 
+
+-Topic bilgilerimizi kontrol edelim 
+
+/scan lidar topic'imiz 
+
+**Komutlar;**
+
+```bash
+ros2 topic info /scan
+ros2 topic hz /scan
+ros2 topic echo /scan 
+```
+
+Böyle görünmesi gerekiyor; 
+
+![lidar](images/lidar.png)
+
+
+
+
 
 
 
