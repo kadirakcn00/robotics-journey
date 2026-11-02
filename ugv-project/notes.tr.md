@@ -1311,6 +1311,22 @@ Böyle görünmesi gerekiyor;
 
 ![lidar](images/lidar.png)
 
+## LIDAR ile Engel Görüp Yön Değiştiren Robot Modeli 
+
+- Basit mantıklı bir robot yön algoritması yapmak için pythonda ; 
+
+/sensor_msgs Lidar ve /geometry_msgs Twist bu ikisini kullanacağız. 
+
+Lidar cismi görecek ve Twist ise linear veya açısal olarak yön değiştirecek. 
+
+Aşağıdaki bağlantıdaki .py dosyasında bu algoritma mevcut ; 
+
+[Algoritma](../doküman.pdf)
+
+Bir cisim görünce robotumuz böyle bir tepki veriyor ; 
+
+![Algoritma_gif](images/Algoritma.gif)
+
 
 
 
