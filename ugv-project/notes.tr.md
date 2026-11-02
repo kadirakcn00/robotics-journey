@@ -1321,7 +1321,7 @@ Lidar cismi görecek ve Twist ise linear veya açısal olarak yön değiştirece
 
 Aşağıdaki bağlantıdaki .py dosyasında bu algoritma mevcut ; 
 
-[Algoritma](robotics-journey/ugv-project/src/ugv_control/ugv_control/avoid_node.py)
+[Algoritma](ugv_control/avoid_node.py)
 
 Bir cisim görünce robotumuz böyle bir tepki veriyor ; 
 
