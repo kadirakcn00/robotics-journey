@@ -20,17 +20,20 @@
   - [4. Our Second Odometry Node: Position Estimation and Publishing TF](#4-our-second-odometry-node-position-estimation-and-publishing-tf)
   - [5. Terminal Commands](#5-terminal-commands)
   - [6. Odometry and Nav2](#6-odometry-and-nav2)
-- [M3: Gazebo Simulation, SLAM, and Mapping](#m3-gazebo-simulation-slam-and-mapping)
+- [M3: Gazebo Simulation, LiDAR, SLAM, and Mapping](#m3-gazebo-simulation-lidar-slam-and-mapping)
   - [Inertial](#inertial)
+  - [Migrating from Gazebo Classic to Gazebo Fortress](#migrating-from-gazebo-classic-to-gazebo-fortress)
   - [Running Our URDF File in Gazebo](#running-our-urdf-file-in-gazebo)
   - [Moving Our Robot in Gazebo and Gazebo Tag](#moving-our-robot-in-gazebo-and-gazebo-tag)
+  - [Adding LiDAR to Our Robot](#adding-lidar-to-our-robot)
+  - [Robot That Detects Obstacles with LiDAR and Changes Direction](#robot-that-detects-obstacles-with-lidar-and-changes-direction)
 
 ---
 
 
 # M1: URDF (Robot Model)
 
-**Environment:** Ubuntu 20.04 + ROS 2 Foxy  
+**Environment:** Ubuntu 22.04 + ROS 2 Humble  
 **Project:** Four-wheeled ground robot (UGV)  
 **File:** `~/Desktop/ros2_ws/src/ugv_project/ugv_description/urdf/ugv.urdf`
 
@@ -397,7 +400,7 @@ rviz2
 Remember to run this in each new terminal first:
 
 ```bash
-source /opt/ros/foxy/setup.bash
+source /opt/ros/humble/setup.bash
 ```
 
 **Real-life example:** When testing robot software, the program that describes the robot, the program that sends joint values, and the program that displays the model each have a different job. Starting each one correctly helps us repeat the test.
@@ -432,7 +435,7 @@ Terminal 3:
 rviz2
 ```
 
-Do not forget to do `source /opt/ros/foxy/setup.bash` in each new terminal first.
+Do not forget to do `source /opt/ros/humble/setup.bash` in each new terminal first.
 
 ---
 
@@ -990,7 +993,7 @@ It looks like this:
 ![odometry](images/odometry.png)
 
 
-# M3: Gazebo Simulation, SLAM, and Mapping
+# M3: Gazebo Simulation, LiDAR, SLAM, and Mapping
 
 ## Inertial
 
@@ -1049,76 +1052,141 @@ Chassis: m = 5 kg, x = 0.5, y = 0.3, z = 0.2:
     </inertial>
 ```
 
+## Migrating from Gazebo Classic to Gazebo Fortress
+
+I first built this project with **Gazebo Classic 11**. However, Gazebo Classic has reached end of life (EOL: January 2025), and the version officially paired with ROS 2 Humble is **Gazebo Fortress** (formerly Ignition Gazebo 6). So I moved the project to Fortress.
+
+The biggest difference: in Gazebo Classic, plugins (`libgazebo_ros_*.so`) published ROS topics directly. In Fortress, Gazebo uses its own topic system, and the connection between ROS 2 and Gazebo is made by a bridge called **`ros_gz_bridge`**.
+
+| Topic | Gazebo Classic 11 | Gazebo Fortress |
+|---|---|---|
+| Installation | `ros-humble-gazebo-ros-pkgs` | `ros-humble-ros-gz` |
+| Opening Gazebo | `ros2 launch gazebo_ros gazebo.launch.py` | `ros2 launch ros_gz_sim gz_sim.launch.py` |
+| Spawning the robot | `ros2 run gazebo_ros spawn_entity.py` | `ros2 run ros_gz_sim create` |
+| Diff drive | `libgazebo_ros_diff_drive.so` | `ignition-gazebo-diff-drive-system` |
+| LiDAR | `type="ray"` + `libgazebo_ros_ray_sensor.so` | `type="gpu_lidar"` + `Sensors` system in the world |
+| ROS connection | Plugin publishes directly | `ros_gz_bridge` is required |
+
+**Installation:**
+
+```bash
+sudo apt install ros-humble-ros-gz ros-humble-teleop-twist-keyboard
+```
+
 ## Running Our URDF File in Gazebo
 
-1. Let's open Gazebo:
+Instead of typing everything into the terminal one by one, I prepared a launch file: [gazebo.launch.py](src/ugv_description/launch/gazebo.launch.py)
+
+This launch file does the following, in order:
+
+1. Opens Gazebo Fortress with our world (`worlds/ugv_world.sdf`). The world has a ground plane, a sun and a few obstacles to test the LiDAR.
+2. Publishes the URDF to the `/robot_description` topic with `robot_state_publisher`.
+3. Reads the robot from that topic and spawns it in Gazebo with `ros_gz_sim create` (we drop it from slightly above with `-z 0.2`).
+4. Connects ROS 2 and Gazebo topics with `ros_gz_bridge`.
+
+**Build and Run:**
+
 ```bash
-source /opt/ros/foxy/setup.bash
-ros2 launch gazebo_ros gazebo.launch.py
+source /opt/ros/humble/setup.bash
+cd ugv-project
+colcon build
+source install/setup.bash
+ros2 launch ugv_description gazebo.launch.py
 ```
 
-2. Let's add the robot:
+To open RViz2 as well:
+
 ```bash
-source /opt/ros/foxy/setup.bash
-ros2 run gazebo_ros spawn_entity.py -entity ugv -file ~/Desktop/ros2_ws/src/ugv_project/ugv_description/urdf/ugv.urdf -z 0.2
+ros2 launch ugv_description gazebo.launch.py rviz:=true
 ```
+
 And it looks like this:
 
 ![gazebo](images/gazebo.png)
+
+**Running it manually (without the launch file):**
+
+```bash
+ros2 launch ros_gz_sim gz_sim.launch.py gz_args:="-r empty.sdf"
+```
+
+```bash
+ros2 run ros_gz_sim create -name ugv -file ~/robotics-journey/ugv-project/src/ugv_description/urdf/ugv.urdf -z 0.2
+```
+
+### ROS 2 - Gazebo Bridge (ros_gz_bridge)
+
+Each line in the bridge has this format:
+
+```
+/topic_name@ROS_MESSAGE_TYPE[GAZEBO_MESSAGE_TYPE
+```
+
+- `[` : Gazebo → ROS 2 direction
+- `]` : ROS 2 → Gazebo direction
+
+| Topic | Direction | Purpose |
+|---|---|---|
+| /clock | Gazebo → ROS | Simulation time (`use_sim_time`) |
+| /cmd_vel | ROS → Gazebo | Velocity commands to the robot |
+| /odom | Gazebo → ROS | Odometry computed by the diff drive |
+| /tf | Gazebo → ROS | `odom → base_link` transform |
+| /scan | Gazebo → ROS | LiDAR data |
+| /joint_states | Gazebo → ROS | Wheel angles (so the wheels spin in RViz) |
 
 
 ## Moving Our Robot in Gazebo and Gazebo Tag
 
 1. For this, we need to open a `<gazebo>` tag in our URDF file.
-I used separate gazebo tags for front and rear wheels.
 
-- For Front Wheels:
+In Classic, I used two separate plugins for the front and rear wheels. Since the DiffDrive system in Fortress accepts multiple `left_joint` / `right_joint` entries, we can drive all four wheels with **a single plugin**.
+
 ```xml
   <gazebo>
-	<plugin name="front_wheel" filename="libgazebo_ros_diff_drive.so">
-    	<!-- Wheel Info -->
-        <left_joint>left_front_wheel_joint</left_joint>
-        <right_joint>right_front_wheel_joint</right_joint>
-        <wheel_separation>0.064</wheel_separation>
-        <wheel_diameter>0.098</wheel_diameter>
- 
-        <!-- Our Limit -->
-        <max_wheel_torque>200</max_wheel_torque>
-        <max_wheel_acceleration>10.0</max_wheel_acceleration>
- 
-        <!-- Output -->
-        <odometry_frame>odom</odometry_frame>
-        <robot_base_frame>base_link</robot_base_frame>
- 
-        <publish_odom>true</publish_odom>
-        <publish_odom_tf>true</publish_odom_tf>
-        <publish_wheel_tf>true</publish_wheel_tf>
-	</plugin>
+    <plugin filename="ignition-gazebo-diff-drive-system"
+            name="ignition::gazebo::systems::DiffDrive">
+      <!-- Wheel Info -->
+      <left_joint>left_front_wheel_joint</left_joint>
+      <left_joint>left_back_wheel_joint</left_joint>
+      <right_joint>right_front_wheel_joint</right_joint>
+      <right_joint>right_back_wheel_joint</right_joint>
+      <wheel_separation>0.34</wheel_separation>
+      <wheel_radius>0.07</wheel_radius>
+
+      <!-- Our Limit -->
+      <max_linear_acceleration>1.0</max_linear_acceleration>
+      <max_angular_acceleration>2.0</max_angular_acceleration>
+
+      <!-- Topics and Frames -->
+      <topic>/cmd_vel</topic>
+      <odom_topic>/odom</odom_topic>
+      <tf_topic>/tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+      <odom_publish_frequency>30</odom_publish_frequency>
+    </plugin>
   </gazebo>
 ```
 
-- For Rear Wheels:
+| Tag | Purpose |
+|---|---|
+| left_joint / right_joint | Wheel joints on the left and right side |
+| wheel_separation | Distance between left and right wheels. The wheels are at y = ±0.17, so 0.34 m |
+| wheel_radius | Wheel radius, 0.07 m |
+| topic | Topic it listens to for velocity commands (`/cmd_vel`) |
+| odom_topic / tf_topic | Topics where odometry and TF are published |
+| frame_id / child_frame_id | `odom → base_link` transform |
+
+**Note:** The `wheel_separation 0.064` and `wheel_diameter 0.098` values in the Classic version did not belong to our robot (they were left over from an example robot). While moving to Fortress, I corrected them to our robot's real dimensions. If these values are wrong, the robot turns and computes odometry incorrectly.
+
+2. We also add the JointStatePublisher system so the wheel angles reach RViz:
+
 ```xml
   <gazebo>
-	<plugin name="back_wheel" filename="libgazebo_ros_diff_drive.so">
-    	<!-- Wheel Info -->
-        <left_joint>left_back_wheel_joint</left_joint>
-        <right_joint>right_back_wheel_joint</right_joint>
-        <wheel_separation>0.064</wheel_separation>
-        <wheel_diameter>0.098</wheel_diameter>
- 
-        <!-- Our Limit -->
-        <max_wheel_torque>200</max_wheel_torque>
-        <max_wheel_acceleration>10.0</max_wheel_acceleration>
- 
-        <!-- Output -->
-        <odometry_frame>odom</odometry_frame>
-        <robot_base_frame>base_link</robot_base_frame>
- 
-        <publish_odom>true</publish_odom>
-        <publish_odom_tf>true</publish_odom_tf>
-        <publish_wheel_tf>true</publish_wheel_tf>
-	</plugin>
+    <plugin filename="ignition-gazebo-joint-state-publisher-system"
+            name="ignition::gazebo::systems::JointStatePublisher">
+      <topic>/joint_states</topic>
+    </plugin>
   </gazebo>
 ```
 
@@ -1141,3 +1209,150 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
 
 ![simulation](images/simulation.gif)
+
+**Note:** In Gazebo, `/odom` and the `odom → base_link` TF are now published by the DiffDrive system. The `ugv_odometry/odom_node` we wrote in M2 is a learning exercise; if we run it together with the simulation, two nodes publish the same TF and the robot jumps around in RViz.
+
+## Adding LiDAR to Our Robot
+
+- A LiDAR sends laser beams around and measures how far away the nearest obstacle is.
+
+- Measurements are published as `sensor_msgs/LaserScan` messages.
+
+- The values we will use are listed below:
+
+| Field | Meaning | Our value |
+|---|---|---|
+| angle_min / angle_max | Start and end angle of the scan | -π to +π (full turn) |
+| angle_increment | Angle between two beams | 2π / 360 = 1° |
+| range_min / range_max | Closest and farthest measurable distance | 0.12 m, 10 m |
+| ranges[] | List of distances measured by each beam | 360 numbers |
+
+1. LiDAR Link and Joint
+
+```xml
+  <link name="lidar_link">
+    <visual>
+      <geometry>
+        <cylinder radius="0.04" length="0.05"/>
+      </geometry>
+    </visual>
+    <collision>
+      <geometry>
+        <cylinder radius="0.04" length="0.05"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.1"/>
+      <inertia ixx="0.0000608" ixy="0" ixz="0" iyy="0.0000608" iyz="0" izz="0.00008"/>
+    </inertial>
+  </link>
+
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0.1 0 0.245" rpy="0 0 0"/>
+  </joint>
+```
+
+- We chose a **cylinder** shape because we want a flat cylinder on top.
+
+- The joint type is **fixed** because it must stay fixed on the robot.
+
+2. LiDAR Sensor
+
+```xml
+  <gazebo reference="lidar_link">
+    <sensor name="lidar_sensor" type="gpu_lidar">
+      <pose>0 0 0 0 0 0</pose>
+      <topic>/scan</topic>
+      <ignition_frame_id>lidar_link</ignition_frame_id>
+      <always_on>true</always_on>
+      <visualize>true</visualize>
+      <update_rate>10</update_rate>
+      <lidar>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.12</min>
+          <max>10.0</max>
+          <resolution>0.01</resolution>
+        </range>
+      </lidar>
+    </sensor>
+  </gazebo>
+```
+
+| Tag | Purpose |
+|---|---|
+| type="gpu_lidar" | LiDAR sensor type in Fortress (it was `ray` in Classic) |
+| topic | Topic the data is published on in Gazebo; the bridge carries it to `/scan` in ROS |
+| ignition_frame_id | Which TF frame the message is in (lidar_link) |
+| visualize | Draws the laser beams in Gazebo, useful for checking |
+| update_rate | Scans per second, we used 10 |
+| samples | Number of beams per full turn, we use 360, i.e. one per degree |
+| range | Measurement range |
+
+- **Important:** In Fortress, the `Sensors` system must be loaded in the world file for sensors to work. Our [ugv_world.sdf](src/ugv_description/worlds/ugv_world.sdf) already has it:
+
+```xml
+<plugin filename="ignition-gazebo-sensors-system"
+        name="ignition::gazebo::systems::Sensors">
+  <render_engine>ogre2</render_engine>
+</plugin>
+```
+
+3. Running
+
+- Check that our links load correctly:
+
+```bash
+check_urdf ~/robotics-journey/ugv-project/src/ugv_description/urdf/ugv.urdf
+```
+
+- Run the project in Gazebo:
+
+```bash
+ros2 launch ugv_description gazebo.launch.py
+```
+
+- Check our topic info. `/scan` is our LiDAR topic.
+
+```bash
+ros2 topic info /scan
+ros2 topic hz /scan
+ros2 topic echo /scan
+```
+
+- To list the topics on the Gazebo side:
+
+```bash
+ign topic -l
+```
+
+It should look like this:
+
+![lidar](images/lidar.png)
+
+## Robot That Detects Obstacles with LiDAR and Changes Direction
+
+- To build a simple direction algorithm in Python, we use `sensor_msgs/LaserScan` (LiDAR) and `geometry_msgs/Twist`.
+
+- The LiDAR sees the object and Twist changes the direction linearly or angularly.
+
+The algorithm is in this .py file: [Algorithm](src/ugv_control/ugv_control/avoid_node.py)
+
+While the simulation is running, start it in a separate terminal:
+
+```bash
+ros2 run ugv_control avoid_node
+```
+
+When it sees an object, our robot reacts like this:
+
+![Algorithm_gif](images/Algoritma.gif)
