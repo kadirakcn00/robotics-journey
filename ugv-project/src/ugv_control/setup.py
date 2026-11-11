@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-	 'avoid_node = ugv_control.avoid_node:main',
+            'avoid_node = ugv_control.avoid_node:main',
         ],
     },
 )

@@ -113,7 +113,7 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 ### Current Features
 
 - Four-wheeled robot model
-- URDF-based robot description
+- Parameterized robot description (URDF / xacro)
 - RViz2 visualization
 - Gazebo Fortress simulation with a custom obstacle world
 - ROS 2 ↔ Gazebo topic bridge (`ros_gz_bridge`)
@@ -121,6 +121,7 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 - Basic odometry implementation
 - LiDAR sensor integration (`gpu_lidar`)
 - LiDAR-based obstacle avoidance node
+- SLAM with `slam_toolbox` (online async mapping)
 
 ### UGV Simulation
 
@@ -136,13 +137,26 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 
 | Component | Purpose |
 |---|---|
-| URDF | Defines the robot's physical structure and joints. |
+| URDF / xacro | Defines the robot's physical structure and joints; dimensions are xacro properties. |
 | TF2 | Manages coordinate frames and transformations. |
 | Odometry | Estimates the robot's movement. |
 | LiDAR | Provides distance measurements of the surroundings. |
 | Gazebo Fortress | Provides the physics simulation, diff-drive and LiDAR sensor. |
 | ros_gz_bridge | Bridges `/cmd_vel`, `/odom`, `/tf`, `/scan`, `/joint_states` and `/clock` between ROS 2 and Gazebo. |
 | RViz2 | Visualizes the robot model and sensor data. |
+| slam_toolbox | Builds a 2D occupancy grid map from LiDAR scans and odometry. |
+
+### Package Structure
+
+```
+ugv-project/src/
+├── ugv_description/   # Robot model (xacro) + RViz display launch
+├── ugv_gazebo/        # Gazebo Fortress worlds + simulation launch (spawn, bridge)
+├── ugv_bringup/       # Top-level launch files: sim, slam
+├── ugv_slam/          # slam_toolbox parameters + saved maps
+├── ugv_control/       # LiDAR obstacle avoidance node
+└── ugv_odometry/      # Hand-written odometry node (M2 exercise)
+```
 
 ### TF2 & Coordinate Frames
 
@@ -167,6 +181,10 @@ LiDAR integration is part of the ongoing work toward environmental perception an
 <p align="center">
   <img src="./ugv-project/images/lidar.png" width="75%" alt="UGV LiDAR Visualization" />
 </p>
+
+### SLAM & Mapping
+
+The robot builds a map of the walled `ugv_world` with `slam_toolbox` while it is driven around with the keyboard. The finished map is saved with `nav2_map_server` and will be used by Nav2 in the next module.
 
 **Learning Notes:**
 
@@ -203,7 +221,9 @@ LiDAR integration is part of the ongoing work toward environmental perception an
 Install the simulation dependencies:
 
 ```bash
-sudo apt install ros-humble-ros-gz ros-humble-robot-state-publisher ros-humble-teleop-twist-keyboard
+sudo apt install ros-humble-ros-gz ros-humble-xacro ros-humble-robot-state-publisher \
+  ros-humble-joint-state-publisher-gui ros-humble-teleop-twist-keyboard \
+  ros-humble-slam-toolbox ros-humble-nav2-map-server
 ```
 
 `ros-humble-ros-gz` installs Gazebo Fortress, which is the officially paired Gazebo version for ROS 2 Humble.
@@ -260,16 +280,22 @@ source install/setup.bash
 
 ### Run the UGV in Gazebo Fortress
 
-Start Gazebo, spawn the robot and bridge the topics with a single command:
+Start Gazebo, spawn the robot, bridge the topics and open RViz2 with a single command:
 
 ```bash
-ros2 launch ugv_description gazebo.launch.py
+ros2 launch ugv_bringup sim.launch.py
 ```
 
-Add RViz2 as well:
+Without RViz2:
 
 ```bash
-ros2 launch ugv_description gazebo.launch.py rviz:=true
+ros2 launch ugv_bringup sim.launch.py rviz:=false
+```
+
+Only the robot model in RViz2 (no physics, joint sliders):
+
+```bash
+ros2 launch ugv_description display.launch.py
 ```
 
 Drive the robot with the keyboard (in a new terminal):
@@ -286,6 +312,23 @@ ros2 run ugv_control avoid_node
 
 > **Note:** In Gazebo the diff-drive system already publishes `/odom` and the `odom → base_link` TF. The hand-written `ugv_odometry/odom_node` is a learning exercise from M2; do not run it together with the simulation, otherwise two nodes publish the same TF.
 
+### Build a Map with SLAM
+
+Start the simulation together with `slam_toolbox`:
+
+```bash
+ros2 launch ugv_bringup slam.launch.py
+```
+
+Drive the robot around the walls with `teleop_twist_keyboard` until the map in RViz2 is complete, then save it:
+
+```bash
+cd ~/robotics-journey/ugv-project/src/ugv_slam/maps
+ros2 run nav2_map_server map_saver_cli -f ugv_world
+```
+
+This writes `ugv_world.pgm` and `ugv_world.yaml`. Rebuild (`colcon build`) so the map is installed with the package.
+
 For more details, refer to the UGV project documentation.
 
 ---
@@ -297,10 +340,11 @@ This repository is continuously evolving as I explore more advanced robotics con
 | Module | Topic | Status |
 |---|---|---|
 | M1 | Robot Modeling (URDF) | Completed |
-| M2 | TF2 & Odometry | In Progress |
-| M3 | SLAM & Mapping | Planned |
+| M2 | TF2 & Odometry | Completed |
+| M3 | Gazebo Simulation, LiDAR, SLAM & Mapping | In Progress |
 | M4 | Navigation2 (Nav2) | Planned |
 | M5 | Camera & Object Detection | Planned |
+| M6 | TEKNOFEST 2026 UGV Course Simulation | Planned |
 
 ---
 
@@ -309,6 +353,7 @@ This repository is continuously evolving as I explore more advanced robotics con
 - Improve the UGV robot model and simulation environment.
 - Develop a deeper understanding of mobile robot localization.
 - Explore SLAM and autonomous navigation.
+- Simulate the TEKNOFEST 2026 Unmanned Ground Vehicle competition course in Gazebo.
 - Integrate camera-based perception.
 - Experiment with autonomous mobile robotics.
 
