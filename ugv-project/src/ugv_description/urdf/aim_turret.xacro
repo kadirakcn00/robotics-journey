@@ -6,8 +6,9 @@
   Komut (radyan):
       ros2 topic pub -1 /aim/pan_cmd  std_msgs/msg/Float64 "{data: 0.5}"
       ros2 topic pub -1 /aim/tilt_cmd std_msgs/msg/Float64 "{data: -0.1}"
-  Gazebo'daki karsiliklari (kopru ile baglanir):
-      /model/ugv/joint/aim_pan_joint/0/cmd_pos, /model/ugv/joint/aim_tilt_joint/0/cmd_pos
+  Gazebo'da da ayni topic adlari kullanilir (<topic> etiketi), kopru bunlari birebir baglar.
+  Not: Gazebo'nun varsayilan adi (/model/ugv/joint/.../0/cmd_pos) icinde rakamla baslayan
+  bir parca oldugu icin ROS'ta yeniden adlandirilamiyor; bu yuzden topic'i burada veriyoruz.
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
@@ -100,6 +101,7 @@
       <plugin filename="ignition-gazebo-joint-position-controller-system"
               name="ignition::gazebo::systems::JointPositionController">
         <joint_name>aim_pan_joint</joint_name>
+        <topic>/aim/pan_cmd</topic>
         <p_gain>2.0</p_gain>
         <i_gain>0.0</i_gain>
         <d_gain>0.05</d_gain>
@@ -111,6 +113,7 @@
       <plugin filename="ignition-gazebo-joint-position-controller-system"
               name="ignition::gazebo::systems::JointPositionController">
         <joint_name>aim_tilt_joint</joint_name>
+        <topic>/aim/tilt_cmd</topic>
         <p_gain>2.0</p_gain>
         <i_gain>0.0</i_gain>
         <d_gain>0.05</d_gain>
