@@ -20,10 +20,6 @@ from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
 
-PAN_CMD = '/model/ugv/joint/aim_pan_joint/0/cmd_pos'
-TILT_CMD = '/model/ugv/joint/aim_tilt_joint/0/cmd_pos'
-
-
 def generate_launch_description():
     description_share = get_package_share_directory('ugv_description')
     gazebo_share = get_package_share_directory('ugv_gazebo')
@@ -75,34 +71,41 @@ def generate_launch_description():
         ],
     )
 
-    # 4) ROS 2 <-> Gazebo topic koprusu
+    # 4) ROS 2 <-> Gazebo topic kopruleri
     #    [  : Gazebo -> ROS      ]  : ROS -> Gazebo
-    bridge = Node(
-        package='ros_gz_bridge',
-        executable='parameter_bridge',
-        output='screen',
-        arguments=[
-            '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
-            '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
-            '/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
-            '/tf@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V',
-            '/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
-            '/joint_states@sensor_msgs/msg/JointState[ignition.msgs.Model',
-            # Kameralar
-            '/camera/front/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
-            '/camera/front/camera_info@sensor_msgs/msg/CameraInfo[ignition.msgs.CameraInfo',
-            '/camera/rear/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
-            '/camera/rear/camera_info@sensor_msgs/msg/CameraInfo[ignition.msgs.CameraInfo',
-            '/camera/aim/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
-            '/camera/aim/camera_info@sensor_msgs/msg/CameraInfo[ignition.msgs.CameraInfo',
-            # Nisan tareti pozisyon komutlari
-            PAN_CMD + '@std_msgs/msg/Float64]ignition.msgs.Double',
-            TILT_CMD + '@std_msgs/msg/Float64]ignition.msgs.Double',
-        ],
-        # Gazebo'daki uzun topic adlarini ROS tarafinda kisaltir
-        remappings=[(PAN_CMD, '/aim/pan_cmd'), (TILT_CMD, '/aim/tilt_cmd')],
-        parameters=[{'use_sim_time': True}],
-    )
+    #    Uc ayri kopru: birinde sorun cikarsa digerleri (ozellikle saat, TF ve LIDAR)
+    #    calismaya devam eder.
+    def bridge(name, topics):
+        return Node(
+            package='ros_gz_bridge',
+            executable='parameter_bridge',
+            name=name,
+            output='screen',
+            arguments=topics,
+            parameters=[{'use_sim_time': True}],
+        )
+
+    core_bridge = bridge('bridge_core', [
+        '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
+        '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
+        '/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
+        '/tf@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V',
+        '/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
+        '/joint_states@sensor_msgs/msg/JointState[ignition.msgs.Model',
+    ])
+
+    camera_bridge = bridge('bridge_cameras', [
+        f'/camera/{cam}/{kind}'
+        for cam in ('front', 'rear', 'aim')
+        for kind in ('image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
+                     'camera_info@sensor_msgs/msg/CameraInfo[ignition.msgs.CameraInfo')
+    ])
+
+    # Nisan tareti pozisyon komutlari (topic adlari aim_turret.xacro'da verilir)
+    turret_bridge = bridge('bridge_turret', [
+        '/aim/pan_cmd@std_msgs/msg/Float64]ignition.msgs.Double',
+        '/aim/tilt_cmd@std_msgs/msg/Float64]ignition.msgs.Double',
+    ])
 
     return LaunchDescription([
         DeclareLaunchArgument('world', default_value=default_world,
@@ -115,5 +118,7 @@ def generate_launch_description():
         gazebo,
         robot_state_publisher,
         spawn,
-        bridge,
+        core_bridge,
+        camera_bridge,
+        turret_bridge,
     ])
