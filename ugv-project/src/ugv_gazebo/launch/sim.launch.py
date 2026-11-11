@@ -1,8 +1,11 @@
-"""UGV'yi ROS 2 Humble + Gazebo Fortress ile baslatir.
+"""Gazebo Fortress'i acar, UGV'yi ekler ve ROS 2 <-> Gazebo koprusunu kurar.
 
-Calistirma:
-    ros2 launch ugv_description gazebo.launch.py
-    ros2 launch ugv_description gazebo.launch.py rviz:=true
+Genelde dogrudan degil, ugv_bringup icinden cagrilir:
+    ros2 launch ugv_bringup sim.launch.py
+
+Argumanlar:
+    world  : .sdf dunya dosyasi (varsayilan: ugv_world.sdf)
+    x y z yaw : robotun baslangic konumu
 """
 
 import os
@@ -10,25 +13,28 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
-    pkg_share = get_package_share_directory('ugv_description')
+    description_share = get_package_share_directory('ugv_description')
+    gazebo_share = get_package_share_directory('ugv_gazebo')
     ros_gz_sim_share = get_package_share_directory('ros_gz_sim')
 
-    urdf_path = os.path.join(pkg_share, 'urdf', 'ugv.urdf')
-    default_world = os.path.join(pkg_share, 'worlds', 'ugv_world.sdf')
-    rviz_config = os.path.join(pkg_share, 'config', 'ugv.rviz')
-
-    with open(urdf_path, 'r') as f:
-        robot_description = f.read()
+    xacro_file = os.path.join(description_share, 'urdf', 'ugv.urdf.xacro')
+    default_world = os.path.join(gazebo_share, 'worlds', 'ugv_world.sdf')
 
     world = LaunchConfiguration('world')
-    rviz = LaunchConfiguration('rviz')
+    x = LaunchConfiguration('x')
+    y = LaunchConfiguration('y')
+    z = LaunchConfiguration('z')
+    yaw = LaunchConfiguration('yaw')
+
+    robot_description = ParameterValue(
+        Command(['xacro ', xacro_file]), value_type=str)
 
     # 1) Gazebo Fortress (-r: simulasyonu baslat)
     gazebo = IncludeLaunchDescription(
@@ -56,13 +62,12 @@ def generate_launch_description():
         arguments=[
             '-name', 'ugv',
             '-topic', 'robot_description',
-            '-z', '0.2',
+            '-x', x, '-y', y, '-z', z, '-Y', yaw,
         ],
     )
 
     # 4) ROS 2 <-> Gazebo topic koprusu
-    #    [  : Gazebo -> ROS
-    #    ]  : ROS -> Gazebo
+    #    [  : Gazebo -> ROS      ]  : ROS -> Gazebo
     bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
@@ -78,26 +83,15 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}],
     )
 
-    # 5) (Istege bagli) RViz2
-    rviz_node = Node(
-        package='rviz2',
-        executable='rviz2',
-        output='screen',
-        arguments=['-d', rviz_config],
-        parameters=[{'use_sim_time': True}],
-        condition=IfCondition(rviz),
-    )
-
     return LaunchDescription([
-        DeclareLaunchArgument(
-            'world', default_value=default_world,
-            description='Gazebo world (.sdf) dosyasi'),
-        DeclareLaunchArgument(
-            'rviz', default_value='false',
-            description='true ise RViz2 de acilir'),
+        DeclareLaunchArgument('world', default_value=default_world,
+                              description='Gazebo world (.sdf) dosyasi'),
+        DeclareLaunchArgument('x', default_value='0.0'),
+        DeclareLaunchArgument('y', default_value='0.0'),
+        DeclareLaunchArgument('z', default_value='0.2'),
+        DeclareLaunchArgument('yaw', default_value='0.0'),
         gazebo,
         robot_state_publisher,
         spawn,
         bridge,
-        rviz_node,
     ])

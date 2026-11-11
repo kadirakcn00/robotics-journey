@@ -1,0 +1,102 @@
+<?xml version="1.0"?>
+<!--
+  UGV robot modeli (xacro).
+  Olculer asagidaki property'lerden degistirilebilir; atalet degerleri otomatik hesaplanir.
+  Kontrol:  xacro ugv.urdf.xacro > /tmp/ugv.urdf && check_urdf /tmp/ugv.urdf
+-->
+<robot name="ugv" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- ================= Olculer (metre / kg) ================= -->
+  <xacro:property name="base_length" value="0.5"/>
+  <xacro:property name="base_width"  value="0.3"/>
+  <xacro:property name="base_height" value="0.2"/>
+  <xacro:property name="base_mass"   value="5.0"/>
+  <!-- Govdenin merkezinin base_link'e gore yuksekligi -->
+  <xacro:property name="base_z"      value="0.12"/>
+
+  <xacro:property name="wheel_radius" value="0.07"/>
+  <xacro:property name="wheel_length" value="0.04"/>
+  <xacro:property name="wheel_mass"   value="0.5"/>
+  <!-- Tekerleklerin base_link'e gore konumu -->
+  <xacro:property name="wheel_x" value="0.16"/>
+  <xacro:property name="wheel_y" value="0.17"/>
+  <xacro:property name="wheel_z" value="0.07"/>
+
+  <xacro:include filename="$(find ugv_description)/urdf/inertial_macros.xacro"/>
+  <xacro:include filename="$(find ugv_description)/urdf/lidar.xacro"/>
+  <xacro:include filename="$(find ugv_description)/urdf/ugv.gazebo.xacro"/>
+
+  <!-- ================= Malzemeler ================= -->
+  <material name="blue">
+    <color rgba="0.1 0.3 0.9 1.0"/>
+  </material>
+  <material name="black">
+    <color rgba="0.1 0.1 0.1 1.0"/>
+  </material>
+  <material name="gray">
+    <color rgba="0.5 0.5 0.5 1.0"/>
+  </material>
+
+  <!-- ================= Govde ================= -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 ${base_z}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_length} ${base_width} ${base_height}"/>
+      </geometry>
+      <material name="blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 ${base_z}" rpy="0 0 0"/>
+      <geometry>
+        <box size="${base_length} ${base_width} ${base_height}"/>
+      </geometry>
+    </collision>
+    <xacro:box_inertia m="${base_mass}" x="${base_length}" y="${base_width}" z="${base_height}"
+                       xyz="0 0 ${base_z}"/>
+  </link>
+
+  <!-- ================= Tekerlekler ================= -->
+  <xacro:macro name="wheel" params="name x y">
+    <link name="${name}_wheel">
+      <visual>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+        </geometry>
+        <material name="black"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_length}"/>
+        </geometry>
+      </collision>
+      <xacro:wheel_inertia m="${wheel_mass}" r="${wheel_radius}" h="${wheel_length}"/>
+    </link>
+
+    <joint name="${name}_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${name}_wheel"/>
+      <origin xyz="${x} ${y} ${wheel_z}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+
+    <gazebo reference="${name}_wheel">
+      <mu1>1.0</mu1>
+      <mu2>1.0</mu2>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:wheel name="right_front" x="${wheel_x}"  y="${-wheel_y}"/>
+  <xacro:wheel name="right_back"  x="${-wheel_x}" y="${-wheel_y}"/>
+  <xacro:wheel name="left_front"  x="${wheel_x}"  y="${wheel_y}"/>
+  <xacro:wheel name="left_back"   x="${-wheel_x}" y="${wheel_y}"/>
+
+  <!-- ================= Sensorler ================= -->
+  <xacro:lidar parent="base_link" xyz="0.1 0 ${base_z + base_height/2 + 0.025}"/>
+
+  <!-- ================= Gazebo eklentileri ================= -->
+  <xacro:ugv_gazebo wheel_separation="${2*wheel_y}" wheel_radius="${wheel_radius}"/>
+
+</robot>
