@@ -6,13 +6,19 @@
 -->
 <robot name="ugv" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
+  <!-- DiffDrive'in dinledigi hiz topic'i. Parkurda su fizigi node'u araya girer:
+       /cmd_vel -> water_physics -> /cmd_vel_gz -> Gazebo -->
+  <xacro:arg name="cmd_vel_topic" default="/cmd_vel"/>
+
   <!-- ================= Olculer (metre / kg) ================= -->
   <xacro:property name="base_length" value="0.5"/>
   <xacro:property name="base_width"  value="0.3"/>
   <xacro:property name="base_height" value="0.2"/>
   <xacro:property name="base_mass"   value="5.0"/>
-  <!-- Govdenin merkezinin base_link'e gore yuksekligi -->
-  <xacro:property name="base_z"      value="0.12"/>
+  <!-- Govdenin merkezinin base_link'e gore yuksekligi.
+       0.17 -> govdenin alti yerden 7 cm yukarida: parkurdaki 6 cm'lik dik engel
+       (sartname 15 cm x 0.4) ve tumseklerden govde surtmeden gecilir. -->
+  <xacro:property name="base_z"      value="0.17"/>
 
   <xacro:property name="wheel_radius" value="0.07"/>
   <xacro:property name="wheel_length" value="0.04"/>
@@ -108,6 +114,7 @@
   <xacro:aim_turret parent="base_link" x="-0.15" z_base="${base_z + base_height/2}"/>
 
   <!-- ================= Gazebo eklentileri ================= -->
-  <xacro:ugv_gazebo wheel_separation="${2*wheel_y}" wheel_radius="${wheel_radius}"/>
+  <xacro:ugv_gazebo wheel_separation="${2*wheel_y}" wheel_radius="${wheel_radius}"
+                    cmd_vel_topic="$(arg cmd_vel_topic)"/>
 
 </robot>

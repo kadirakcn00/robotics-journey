@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<sdf version="1.8">
+  <model name="traffic_cone">
+    <static>true</static>
+    <link name="link">
+      <visual name="base"><pose>0 0 0.006 0 0 0</pose>
+        <geometry><box><size>0.16 0.16 0.012</size></box></geometry><material><ambient>1.0 0.45 0.0 1.0</ambient><diffuse>1.0 0.45 0.0 1.0</diffuse></material>
+      </visual>
+      <visual name="body_0"><pose>0 0 0.0378 0 0 0</pose><geometry><cylinder><radius>0.0562</radius><length>0.0517</length></cylinder></geometry><material><ambient>1.0 0.45 0.0 1.0</ambient><diffuse>1.0 0.45 0.0 1.0</diffuse></material></visual><visual name="body_1"><pose>0 0 0.0895 0 0 0</pose><geometry><cylinder><radius>0.0487</radius><length>0.0517</length></cylinder></geometry><material><ambient>0.95 0.95 0.95 1.0</ambient><diffuse>0.95 0.95 0.95 1.0</diffuse></material></visual><visual name="body_2"><pose>0 0 0.1412 0 0 0</pose><geometry><cylinder><radius>0.0412</radius><length>0.0517</length></cylinder></geometry><material><ambient>1.0 0.45 0.0 1.0</ambient><diffuse>1.0 0.45 0.0 1.0</diffuse></material></visual><visual name="body_3"><pose>0 0 0.1928 0 0 0</pose><geometry><cylinder><radius>0.0338</radius><length>0.0517</length></cylinder></geometry><material><ambient>0.95 0.95 0.95 1.0</ambient><diffuse>0.95 0.95 0.95 1.0</diffuse></material></visual><visual name="body_4"><pose>0 0 0.2445 0 0 0</pose><geometry><cylinder><radius>0.0263</radius><length>0.0517</length></cylinder></geometry><material><ambient>1.0 0.45 0.0 1.0</ambient><diffuse>1.0 0.45 0.0 1.0</diffuse></material></visual><visual name="body_5"><pose>0 0 0.2962 0 0 0</pose><geometry><cylinder><radius>0.0187</radius><length>0.0517</length></cylinder></geometry><material><ambient>0.95 0.95 0.95 1.0</ambient><diffuse>0.95 0.95 0.95 1.0</diffuse></material></visual>
+      <collision name="base_c"><pose>0 0 0.006 0 0 0</pose>
+        <geometry><box><size>0.16 0.16 0.012</size></box></geometry></collision>
+      <collision name="body_c"><pose>0 0 0.1550 0 0 0</pose>
+        <geometry><cylinder><radius>0.045</radius><length>0.3100</length></cylinder>
+        </geometry></collision>
+    </link>
+  </model>
+</sdf>
