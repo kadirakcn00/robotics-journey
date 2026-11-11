@@ -16,17 +16,19 @@
   <xacro:property name="base_height" value="0.2"/>
   <xacro:property name="base_mass"   value="5.0"/>
   <!-- Govdenin merkezinin base_link'e gore yuksekligi.
-       0.17 -> govdenin alti yerden 7 cm yukarida: parkurdaki 6 cm'lik dik engel
-       (sartname 15 cm x 0.4) ve tumseklerden govde surtmeden gecilir. -->
-  <xacro:property name="base_z"      value="0.17"/>
+       0.20 -> govdenin alti yerden 10 cm yukarida: parkurdaki 6 cm'lik dik engel
+       (sartname 15 cm x 0.4), tumsekler ve rampalarda govde surtmez. -->
+  <xacro:property name="base_z"      value="0.20"/>
 
-  <xacro:property name="wheel_radius" value="0.07"/>
+  <!-- Tekerlek yaricapi 12 cm: bir tekerlek pratikte yaricapinin yarisi kadar yuksek bir
+       basamaga tirmanabilir; 6 cm'lik dik engel icin en az 12 cm gerekir. -->
+  <xacro:property name="wheel_radius" value="0.12"/>
   <xacro:property name="wheel_length" value="0.04"/>
   <xacro:property name="wheel_mass"   value="0.5"/>
   <!-- Tekerleklerin base_link'e gore konumu -->
   <xacro:property name="wheel_x" value="0.16"/>
   <xacro:property name="wheel_y" value="0.17"/>
-  <xacro:property name="wheel_z" value="0.07"/>
+  <xacro:property name="wheel_z" value="${wheel_radius}"/>
 
   <xacro:include filename="$(find ugv_description)/urdf/inertial_macros.xacro"/>
   <xacro:include filename="$(find ugv_description)/urdf/lidar.xacro"/>
@@ -91,8 +93,8 @@
     </joint>
 
     <gazebo reference="${name}_wheel">
-      <mu1>1.0</mu1>
-      <mu2>1.0</mu2>
+      <mu1>1.2</mu1>
+      <mu2>1.2</mu2>
     </gazebo>
   </xacro:macro>
 
@@ -102,11 +104,13 @@
   <xacro:wheel name="left_back"   x="${-wheel_x}" y="${wheel_y}"/>
 
   <!-- ================= Sensorler ================= -->
-  <xacro:lidar parent="base_link" xyz="0.1 0 ${base_z + base_height/2 + 0.025}"/>
+  <!-- LIDAR on tamponda, yerden 20 cm: parkurdaki koniler (31 cm), kayar engel ve bariyerler
+       (32 cm) tarama duzleminin icinde kalir. -->
+  <xacro:lidar parent="base_link" xyz="${base_length/2 + 0.05} 0 ${base_z}"/>
 
   <!-- Surus kameralari (sartname 6.12: ileri ve geri surus kamerasi) -->
   <xacro:camera short="front" parent="base_link" hfov="1.2"
-                xyz="${base_length/2 + 0.01} 0 ${base_z}" rpy="0 0 0"/>
+                xyz="${base_length/2 - 0.03} 0 ${base_z + base_height/2 + 0.0125}" rpy="0 0 0"/>
   <xacro:camera short="rear" parent="base_link" hfov="1.2"
                 xyz="${-base_length/2 - 0.01} 0 ${base_z}" rpy="0 0 ${pi}"/>
 

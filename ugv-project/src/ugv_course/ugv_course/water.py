@@ -59,7 +59,7 @@ class WaterModel:
     icin kullanilir.
     """
 
-    def __init__(self, zones, robot_height=0.27, effect=None, seed=0):
+    def __init__(self, zones, robot_height=0.30, effect=None, seed=0):
         self.zones = list(zones)
         self.robot_height = robot_height
         self.effect = effect or WaterEffect()
