@@ -5,6 +5,17 @@ from setuptools import setup
 
 package_name = 'ugv_gazebo'
 
+
+def tree(folder):
+    """Klasoru alt klasorleriyle birlikte share/ altina kurmak icin data_files listesi."""
+    out = []
+    for root, _, files in os.walk(folder):
+        if files:
+            out.append((os.path.join('share', package_name, root),
+                        [os.path.join(root, f) for f in files]))
+    return out
+
+
 setup(
     name=package_name,
     version='0.0.0',
@@ -15,7 +26,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'worlds'), glob('worlds/*.sdf')),
-    ],
+    ] + tree('models'),
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='kadir',

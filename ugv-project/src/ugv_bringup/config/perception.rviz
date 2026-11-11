@@ -1,0 +1,65 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Reference Frame: <Fixed Frame>
+      Plane: XY
+      Plane Cell Count: 20
+      Cell Size: 1
+    - Class: rviz_default_plugins/RobotModel
+      Name: RobotModel
+      Enabled: true
+      Description Source: Topic
+      Description Topic:
+        Value: /robot_description
+    - Class: rviz_default_plugins/TF
+      Name: TF
+      Enabled: false
+    - Class: rviz_default_plugins/LaserScan
+      Name: LaserScan
+      Enabled: true
+      Topic:
+        Value: /scan
+        Reliability Policy: Best Effort
+      Size (m): 0.03
+      Style: Points
+      Color Transformer: FlatColor
+      Color: 255; 0; 0
+    - Class: rviz_default_plugins/Image
+      Name: On Kamera (tabela)
+      Enabled: true
+      Topic:
+        Value: /perception/front/sign_debug
+      Normalize Range: true
+    - Class: rviz_default_plugins/Image
+      Name: Geri Kamera (tabela)
+      Enabled: true
+      Topic:
+        Value: /perception/rear/sign_debug
+      Normalize Range: true
+    - Class: rviz_default_plugins/Image
+      Name: Nisan Kamerasi (hedef)
+      Enabled: true
+      Topic:
+        Value: /perception/aim/target_debug
+      Normalize Range: true
+  Enabled: true
+  Global Options:
+    Fixed Frame: odom
+    Background Color: 48; 48; 48
+    Frame Rate: 30
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 4
+      Pitch: 0.5
+      Yaw: 3.6
+      Target Frame: base_link

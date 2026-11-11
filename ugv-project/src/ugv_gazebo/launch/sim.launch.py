@@ -12,11 +12,16 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import (AppendEnvironmentVariable, DeclareLaunchArgument,
+                            IncludeLaunchDescription)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+
+
+PAN_CMD = '/model/ugv/joint/aim_pan_joint/0/cmd_pos'
+TILT_CMD = '/model/ugv/joint/aim_tilt_joint/0/cmd_pos'
 
 
 def generate_launch_description():
@@ -35,6 +40,10 @@ def generate_launch_description():
 
     robot_description = ParameterValue(
         Command(['xacro ', xacro_file]), value_type=str)
+
+    # 0) model:// adreslerinin (tabelalar, hedef) bulunabilmesi icin model klasoru
+    model_path = AppendEnvironmentVariable(
+        'IGN_GAZEBO_RESOURCE_PATH', os.path.join(gazebo_share, 'models'))
 
     # 1) Gazebo Fortress (-r: simulasyonu baslat)
     gazebo = IncludeLaunchDescription(
@@ -79,7 +88,19 @@ def generate_launch_description():
             '/tf@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V',
             '/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
             '/joint_states@sensor_msgs/msg/JointState[ignition.msgs.Model',
+            # Kameralar
+            '/camera/front/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
+            '/camera/front/camera_info@sensor_msgs/msg/CameraInfo[ignition.msgs.CameraInfo',
+            '/camera/rear/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
+            '/camera/rear/camera_info@sensor_msgs/msg/CameraInfo[ignition.msgs.CameraInfo',
+            '/camera/aim/image_raw@sensor_msgs/msg/Image[ignition.msgs.Image',
+            '/camera/aim/camera_info@sensor_msgs/msg/CameraInfo[ignition.msgs.CameraInfo',
+            # Nisan tareti pozisyon komutlari
+            PAN_CMD + '@std_msgs/msg/Float64]ignition.msgs.Double',
+            TILT_CMD + '@std_msgs/msg/Float64]ignition.msgs.Double',
         ],
+        # Gazebo'daki uzun topic adlarini ROS tarafinda kisaltir
+        remappings=[(PAN_CMD, '/aim/pan_cmd'), (TILT_CMD, '/aim/tilt_cmd')],
         parameters=[{'use_sim_time': True}],
     )
 
@@ -90,6 +111,7 @@ def generate_launch_description():
         DeclareLaunchArgument('y', default_value='0.0'),
         DeclareLaunchArgument('z', default_value='0.2'),
         DeclareLaunchArgument('yaw', default_value='0.0'),
+        model_path,
         gazebo,
         robot_state_publisher,
         spawn,
