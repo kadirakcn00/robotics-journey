@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!-- UGV icin Gazebo Fortress dunyasi: zemin, gunes ve LIDAR testi icin engeller -->
+<!-- UGV icin Gazebo Fortress dunyasi: 12x12 m duvarli alan + engeller (LIDAR, SLAM ve Nav2 testi) -->
 <sdf version="1.8">
   <world name="ugv_world">
 
@@ -45,6 +45,65 @@
       </link>
     </model>
 
+    <!-- Cevre duvarlari (12 x 12 m) -->
+    <model name="wall_north">
+      <static>true</static>
+      <pose>0 6.1 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>12.4 0.2 1</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>12.4 0.2 1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="wall_south">
+      <static>true</static>
+      <pose>0 -6.1 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>12.4 0.2 1</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>12.4 0.2 1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="wall_east">
+      <static>true</static>
+      <pose>6.1 0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.2 12.0 1</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 12.0 1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+    <model name="wall_west">
+      <static>true</static>
+      <pose>-6.1 0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.2 12.0 1</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 12.0 1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Ic duvar (haritada ayirt edici bir yapi olsun diye) -->
+    <model name="wall_inner">
+      <static>true</static>
+      <pose>-3.5 1.5 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>0.2 4.0 1</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 4.0 1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
     <!-- Engeller -->
     <model name="box_front">
       <static>true</static>
@@ -78,6 +137,18 @@
         <visual name="visual">
           <geometry><cylinder><radius>0.4</radius><length>1</length></cylinder></geometry>
           <material><ambient>0.9 0.6 0.1 1</ambient><diffuse>0.9 0.6 0.1 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="box_corner">
+      <static>true</static>
+      <pose>4 -4 0.5 0 0 0.6</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>1 1 1</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>1 1 1</size></box></geometry>
+          <material><ambient>0.2 0.4 0.8 1</ambient><diffuse>0.2 0.4 0.8 1</diffuse></material>
         </visual>
       </link>
     </model>
