@@ -27,7 +27,7 @@ def test_water_slows_robot_down():
     v = w = 0.0
     for _ in range(200):                     # 10 s havuz ortasinda, sabit komut
         v, w = m.step(0.4, 0.8, 5.9, 0.0, 0.05)
-    s = 0.16 / 0.27
+    s = 0.16 / 0.30
     assert v == pytest.approx(0.4 * (1 - 0.6 * s), rel=1e-6)
     assert w == pytest.approx(0.8 * (1 - 0.5 * s), rel=1e-6)
     assert v < 0.4 and w < 0.8
@@ -36,7 +36,7 @@ def test_water_slows_robot_down():
 def test_acceleration_is_limited_in_water():
     m = WaterModel([POOL], effect=WaterEffect(yaw_noise=0.0))
     v, _ = m.step(0.4, 0.0, 5.9, 0.0, 0.1)
-    s = 0.16 / 0.27
+    s = 0.16 / 0.30
     accel = 1.0 + (0.3 - 1.0) * s
     assert v == pytest.approx(accel * 0.1)    # ilk adimda sadece izin verilen kadar hizlanir
 

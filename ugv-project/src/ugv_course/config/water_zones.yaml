@@ -1,5 +1,6 @@
 # make_teknofest_course.py tarafindan uretildi: su gecisi havuzu (sartname 6.3)
 water_physics:
   ros__parameters:
-    zones: ["5.2, 6.6, -0.6000000000000001, 0.6000000000000001, 0.160, 0.277"]
+    zones: ["5.200, 6.600, -0.600, 0.600, 0.160, 0.440"]
     # x_min, x_max, y_min, y_max, derinlik, egim uzunlugu (m)
+    robot_height: 0.30   # yerden govde ustune (m)

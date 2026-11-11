@@ -144,7 +144,7 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 | URDF / xacro | Defines the robot's physical structure and joints; dimensions are xacro properties. |
 | TF2 | Manages coordinate frames and transformations. |
 | Odometry | Estimates the robot's movement. |
-| LiDAR | Provides distance measurements of the surroundings (±165°, the rear sector is blocked by the turret mast). |
+| LiDAR | Provides distance measurements of the surroundings (front bumper, 20 cm high, ±90°). |
 | Cameras | Front and rear driving cameras (69° FOV) and a narrow aiming camera (14° FOV) on a pan-tilt turret. |
 | Gazebo Fortress | Provides the physics simulation, diff-drive and LiDAR sensor. |
 | ros_gz_bridge | Bridges `/cmd_vel`, `/odom`, `/tf`, `/scan`, `/joint_states` and `/clock` between ROS 2 and Gazebo. |
@@ -219,7 +219,7 @@ The competition course from the TEKNOFEST 2026 Unmanned Ground Vehicle specifica
 
 | Stage | Specification | Simulation (×0.4) |
 |---|---|---|
-| 1 Water crossing + rain | 40 cm deep | 16 cm pool with sloped entry/exit, custom water physics, rain particles |
+| 1 Water crossing + rain | 40 cm deep | 16 cm pool with 20° entry/exit, custom water physics, rain particles |
 | 2 Gravel road | stones up to 5 cm | 90 stones up to 2 cm |
 | 3 Side slope | 20 % | 20 % with smooth entry/exit |
 | 4 Vertical obstacle | 15 cm | 6 cm block |
@@ -234,7 +234,7 @@ Road width 3 m → 1.2 m, red-white barriers 80 cm → 32 cm, straight sections 
 
 **Water physics:** Gazebo Fortress has no water for ground vehicles, and the diff-drive plugin sets wheel speeds directly, so drag forces would not slow the robot. The `water_physics` node sits between the velocity command and Gazebo (`/cmd_vel → water_physics → /cmd_vel_gz`) and uses the robot's ground-truth position: the deeper the robot is in the pool, the lower its top speed (up to −60 %), turning rate and acceleration, with a small random yaw drift for the slippery ground.
 
-The robot body was raised (ground clearance 2 cm → 7 cm) so it can climb the 6 cm step and the bumps without scraping.
+To handle the course, the wheels were enlarged (radius 7 cm → 12 cm; a wheel can climb a step of about half its radius) and the body raised to 10 cm ground clearance. The LiDAR moved to the front bumper at 20 cm height (±90°) so the cones, the sliding obstacle and the barriers are inside its scan plane.
 
 **Learning Notes:**
 

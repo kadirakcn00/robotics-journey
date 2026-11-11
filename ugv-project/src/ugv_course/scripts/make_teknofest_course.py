@@ -6,7 +6,7 @@ olcekten etkilenmez.
 
 Uretilenler:
     worlds/teknofest_course.sdf          : parkur dunyasi
-    models/teknofest_parts/meshes/*.obj  : egimli zeminler (yan egim, rampalar, tumsek, havuz)
+    models/teknofest_parts/meshes/*.obj  : yan egim zemini (yumusak gecisli %20 egim)
     models/traffic_cone, models/sliding_obstacle
     config/water_zones.yaml              : su fizigi icin havuz bilgisi
     docs/course_top_view.png             : parkurun ustten gorunusu
@@ -43,7 +43,7 @@ ROW_D = 2 * ROW_GAP + 3.5
 
 POOL_X = (5.2, 6.6)
 POOL_DEPTH = 0.40 * S         # 16 cm
-POOL_RAMP = POOL_DEPTH / math.tan(math.radians(30))
+POOL_RAMP = POOL_DEPTH / math.tan(math.radians(20))   # 20 derece (%36) giris/cikis
 GRAVEL_X = (3.6, 4.8)
 SIDE_X = (0.8, 2.8)
 SIDE_GRADE = 0.20
@@ -119,24 +119,6 @@ def _dot(a, b):
 def _norm(a):
     n = math.sqrt(_dot(a, a)) or 1.0
     return tuple(x / n for x in a)
-
-
-def prism(profile, y0, y1):
-    """x-z duzleminde dis bukey profil, y0..y1 boyunca uzatilir (yerel koordinat)."""
-    m = Mesh()
-    cx = sum(p[0] for p in profile) / len(profile)
-    cz = sum(p[1] for p in profile) / len(profile)
-    lo = [m.add_v((x, y0, z)) for x, z in profile]
-    hi = [m.add_v((x, y1, z)) for x, z in profile]
-    for i in range(1, len(profile) - 1):
-        m.tri(lo[0], lo[i], lo[i + 1], (0, -1, 0))
-        m.tri(hi[0], hi[i], hi[i + 1], (0, 1, 0))
-    for i in range(len(profile)):
-        j = (i + 1) % len(profile)
-        mx = (profile[i][0] + profile[j][0]) / 2 - cx
-        mz = (profile[i][1] + profile[j][1]) / 2 - cz
-        m.quad(lo[i], lo[j], hi[j], hi[i], (mx, 0, mz))
-    return m
 
 
 def side_slope_height(x, y):
@@ -217,6 +199,26 @@ class Course:
             s += f'<collision name="{nm}_c"><pose>{p}</pose>{geo}</collision>'
         self.items.append(s)
 
+    def slope_box(self, p_low, p_high, y, width, mat, thick=0.1, extend=0.05, name='slope'):
+        """Egimli yuzey: ust yuzeyi (x, z) p_low'dan p_high'a giden dondurulmus kutu.
+
+        Kutu, ust yuzeyi tam bu iki noktadan gececek sekilde zeminin icine gomulur. Alcak
+        uctan 'extend' kadar uzatilir; uzayan kisim zeminin altinda kalir, dudak olusmaz.
+        """
+        (xl, zl), (xh, zh) = p_low, p_high
+        run, rise = xh - xl, zh - zl
+        length = math.hypot(run, rise)
+        ux, uz = run / length, rise / length                  # yokus yukari yon
+        xl, zl = xl - ux * extend, zl - uz * extend
+        length += extend
+        ax, az = (ux, uz) if ux >= 0 else (-ux, -uz)          # kutunun x ekseni (+x'e bakan)
+        pitch = math.atan2(-az, ax)                           # -90..90 derece arasi
+        nx, nz = math.sin(pitch), math.cos(pitch)             # ust yuzey normali (yukari)
+        cx = (xl + xh) / 2 - nx * thick / 2
+        cz = (zl + zh) / 2 - nz * thick / 2
+        self.box((length, width, thick), (cx, y, cz, 0, pitch, 0), mat, name=name)
+        return (xl + xh) / 2, (zl + zh) / 2, pitch, (nx, nz)
+
     def mesh(self, fname, mat, pose=(0, 0, 0, 0, 0, 0), name='mesh'):
         self.n += 1
         nm = f'{name}_{self.n}'
@@ -292,7 +294,8 @@ def build():
                     GRASS, name='terrain')
 
     # ---------------------------------------------------------------- yollar
-    course.road_line(0.0, ROW_LEN, ROW_A)
+    course.road_line(0.0, POOL_X[0], ROW_A)            # havuzun ustunu ortmesin
+    course.road_line(POOL_X[1], ROW_LEN, ROW_A)
     course.road_line(0.0, ROW_LEN, ROW_B)
     course.road_line(ROW_C_END, ROW_LEN, ROW_C)
     course.road_arc((0.0, (ROW_A + ROW_B) / 2), -math.pi / 2, -3 * math.pi / 2)
@@ -344,10 +347,11 @@ def build():
     course.preview.append(('label', (FINISH_X, ROW_C - 1.0), 'BITIS'))
 
     # ---------------------------------------------------------------- 1) su gecisi + yagmur
-    pool_ramp = prism([(0.0, 0.0), (0.0, -POOL_DEPTH), (POOL_RAMP, -POOL_DEPTH)], -HALF, HALF)
-    pool_ramp.write(os.path.join(parts_dir, 'pool_ramp.obj'))
-    course.mesh('pool_ramp.obj', ROAD, (px0, 0, 0, 0, 0, 0), name='pool_ramp')        # cikis
-    course.mesh('pool_ramp.obj', ROAD, (px1, 0, 0, 0, 0, math.pi), name='pool_ramp')  # giris
+    pool_mat = color(0.45, 0.42, 0.38)
+    course.slope_box((px1 - POOL_RAMP, -POOL_DEPTH), (px1, 0.0), ROW_A, ROAD_W, pool_mat,
+                     name='pool_ramp')                                  # giris
+    course.slope_box((px0 + POOL_RAMP, -POOL_DEPTH), (px0, 0.0), ROW_A, ROAD_W, pool_mat,
+                     name='pool_ramp')                                  # cikis
     water = (f'<visual name="water"><pose>{(px0 + px1) / 2:.3f} 0 {-POOL_DEPTH / 2 - 0.005:.4f}'
              f' 0 0 0</pose><geometry><box><size>{px1 - px0:.3f} {ROAD_W:.3f} '
              f'{POOL_DEPTH - 0.01:.4f}</size></box></geometry>'
@@ -387,26 +391,27 @@ def build():
                            (200, 200, 205), '4'))
 
     # ---------------------------------------------------------------- 7) engebeli arazi
-    bump = prism([(-0.04, 0.0), (0.04, 0.0), (0.016, 0.02), (-0.016, 0.02)], -0.15, 0.15)
-    bump.write(os.path.join(parts_dir, 'bump.obj'))                 # 20x5 cm (Sekil 4) x 0.4
+    # Tumsek (Sekil 4, 20 x 5 cm -> 8 x 2 cm): yarisi gomulu yatay silindir. Kirisi 8 cm,
+    # yuksekligi 2 cm olan daire yayi: r = (4^2 + 2^2) / (2 * 2) = 5 cm, merkez z = -3 cm.
+    bump_r = (0.04 ** 2 + 0.02 ** 2) / (2 * 0.02)
     bx0, bx1 = BUMPS_X
     for i, x in enumerate(bx0 + (bx1 - bx0) * (k + 0.5) / 6 for k in range(6)):
         for y in ((-0.3, 0.3) if i % 2 == 0 else (0.0,)):
-            course.mesh('bump.obj', color(0.6, 0.45, 0.25), (x, ROW_C + y, 0, 0, 0, 0),
-                        name='bump')
+            course.cylinder(bump_r, 0.3, (x, ROW_C + y, 0.02 - bump_r, math.pi / 2, 0, 0),
+                            color(0.6, 0.45, 0.25), name='bump')
             course.preview.append(('zone', (x - 0.04, ROW_C + y - 0.15),
                                    (x + 0.04, ROW_C + y + 0.15), (150, 110, 60), ''))
     course.preview.append(('label', ((bx0 + bx1) / 2, ROW_C - 0.9), '7'))
 
     # ---------------------------------------------------------------- 8-9-10) rampa + atis
-    prof, (ra, rb, rc, rd) = ramp_profile()
-    prism(prof, -HALF, HALF).write(os.path.join(parts_dir, 'ramp_platform.obj'))
-    course.mesh('ramp_platform.obj', color(0.7, 0.55, 0.85), (0, ROW_C, 0, 0, 0, 0),
-                name='ramps')
-    ang = math.atan(RAMP_GRADE)
-    for (x0, x1), sgn in (((ra, rb), 1), ((rc, rd), -1)):           # "stop" seritleri
-        xm = (x0 + x1) / 2
-        course.box((0.06, ROAD_W, 0.004), (xm, ROW_C, RAMP_H / 2 + 0.004, 0, sgn * ang, 0),
+    _, (ra, rb, rc, rd) = ramp_profile()
+    ramp_mat = color(0.7, 0.55, 0.85)
+    up = course.slope_box((ra, 0.0), (rb, RAMP_H), ROW_C, ROAD_W, ramp_mat, name='ramp_up')
+    down = course.slope_box((rd, 0.0), (rc, RAMP_H), ROW_C, ROAD_W, ramp_mat, name='ramp_down')
+    course.box((rb - rc, ROAD_W, RAMP_H), ((rb + rc) / 2, ROW_C, RAMP_H / 2, 0, 0, 0),
+               color(0.78, 0.65, 0.9), name='platform')
+    for xm, zm, pitch, (nx, nz) in (up, down):                      # "stop" seritleri
+        course.box((0.06, ROAD_W, 0.004), (xm + nx * 0.003, ROW_C, zm + nz * 0.003, 0, pitch, 0),
                    WHITE, collide=False, name='stop_line')
     course.preview.append(('zone', (rb, ROW_C - HALF), (ra, ROW_C + HALF), (170, 120, 210),
                            '8'))
@@ -474,7 +479,7 @@ def write_models():
             with open(os.path.join(base, name, 'model.sdf'), 'w') as f:
                 f.write(sdf)
 
-    write(PARTS, 'TEKNOFEST parkuru egimli zemin parcalari (mesh)', None)
+    write(PARTS, 'TEKNOFEST parkuru yan egim zemini (mesh)', None)
 
     # Trafik konisi: 40x40 cm taban, 75 cm (izin verilen ust sinir 80 cm) -> x 0.4
     h = 0.31
@@ -668,9 +673,11 @@ def write_water_yaml():
     with open(path, 'w') as f:
         f.write('# make_teknofest_course.py tarafindan uretildi: su gecisi havuzu (sartname 6.3)\n'
                 'water_physics:\n  ros__parameters:\n'
-                f'    zones: ["{POOL_X[0]}, {POOL_X[1]}, {-HALF}, {HALF}, {POOL_DEPTH:.3f}, '
+                f'    zones: ["{POOL_X[0]:.3f}, {POOL_X[1]:.3f}, {-HALF:.3f}, {HALF:.3f}, '
+                f'{POOL_DEPTH:.3f}, '
                 f'{POOL_RAMP:.3f}"]\n'
-                '    # x_min, x_max, y_min, y_max, derinlik, egim uzunlugu (m)\n')
+                '    # x_min, x_max, y_min, y_max, derinlik, egim uzunlugu (m)\n'
+                '    robot_height: 0.30   # yerden govde ustune (m)\n')
     return path
 
 

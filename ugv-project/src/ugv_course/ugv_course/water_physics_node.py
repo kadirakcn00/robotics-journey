@@ -39,7 +39,7 @@ class WaterPhysicsNode(Node):
     def __init__(self):
         super().__init__('water_physics')
         self.declare_parameter('zones', [''])
-        self.declare_parameter('robot_height', 0.27)
+        self.declare_parameter('robot_height', 0.30)
         self.declare_parameter('input_topic', '/cmd_vel')
         self.declare_parameter('output_topic', '/cmd_vel_gz')
         self.declare_parameter('ground_truth_topic', '/ground_truth/odom')
