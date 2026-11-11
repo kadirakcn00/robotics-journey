@@ -8,10 +8,10 @@ A hands-on journey into ROS 2, robot simulation, autonomous systems and mobile r
 
 <br>
 
-<img src="https://img.shields.io/badge/ROS_2-Foxy-blue?logo=ros" />
+<img src="https://img.shields.io/badge/ROS_2-Humble-blue?logo=ros" />
 <img src="https://img.shields.io/badge/Python-3.x-yellow?logo=python" />
-<img src="https://img.shields.io/badge/Ubuntu-20.04-orange?logo=ubuntu" />
-<img src="https://img.shields.io/badge/Gazebo-Simulation-blue" />
+<img src="https://img.shields.io/badge/Ubuntu-22.04-orange?logo=ubuntu" />
+<img src="https://img.shields.io/badge/Gazebo-Classic_11-blue" />
 <img src="https://img.shields.io/badge/Project-Active-brightgreen" />
 
 </div>
@@ -106,7 +106,7 @@ flowchart LR
 
 ## 2. UGV Project
 
-The UGV project focuses on developing a simulated four-wheeled **Unmanned Ground Vehicle** using ROS 2 Foxy and Gazebo.
+The UGV project focuses on developing a simulated four-wheeled **Unmanned Ground Vehicle** using ROS 2 Humble and Gazebo Classic 11.
 
 The project explores how robot descriptions, coordinate frames, sensor data and odometry work together in a simulated mobile robot.
 
@@ -176,13 +176,13 @@ LiDAR integration is part of the ongoing work toward environmental perception an
 
 | Technology | Usage |
 |---|---|
-| ROS 2 Foxy | Robot communication and software architecture |
+| ROS 2 Humble | Robot communication and software architecture |
 | Python | ROS 2 node development |
 | URDF | Robot modeling |
-| Gazebo | Robot simulation |
+| Gazebo Classic 11 | Robot simulation |
 | RViz2 | Robot visualization |
 | TF2 | Coordinate transformations |
-| Ubuntu 20.04 | Development environment |
+| Ubuntu 22.04 | Development environment |
 
 ---
 
@@ -190,10 +190,10 @@ LiDAR integration is part of the ongoing work toward environmental perception an
 
 ### Requirements
 
-- Ubuntu 20.04
-- ROS 2 Foxy
+- Ubuntu 22.04
+- ROS 2 Humble
 - Python 3
-- Gazebo
+- Gazebo Classic 11 (`sudo apt install ros-humble-gazebo-ros-pkgs`)
 - RViz2
 
 ### Clone the Repository
@@ -207,7 +207,7 @@ cd robotics-journey
 ### Build ROS 2 Basics
 
 ```bash
-source /opt/ros/foxy/setup.bash
+source /opt/ros/humble/setup.bash
 
 cd ros2-basics
 
@@ -225,7 +225,7 @@ ros2 run py_pubsub my_talker
 Open another terminal and run the subscriber:
 
 ```bash
-source /opt/ros/foxy/setup.bash
+source /opt/ros/humble/setup.bash
 
 cd robotics-journey/ros2-basics
 
@@ -237,7 +237,7 @@ ros2 run py_pubsub my_listener
 ### Build the UGV Project
 
 ```bash
-source /opt/ros/foxy/setup.bash
+source /opt/ros/humble/setup.bash
 
 cd ugv-project
 
