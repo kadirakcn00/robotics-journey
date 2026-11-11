@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<sdf version="1.8">
+  <!-- Kayar engel (sartname 6.8, olcek x0.4): 40 cm genislik, 8 cm/s ile gider gelir.
+       Konum komutu: /course/slider_cmd (std_msgs/Float64), sliding_obstacle node'u gonderir. -->
+  <model name="sliding_obstacle">
+    <link name="base">
+      <inertial><mass>1.0</mass>
+        <inertia><ixx>0.01</ixx><iyy>0.01</iyy><izz>0.01</izz></inertia></inertial>
+    </link>
+    <joint name="world_joint" type="fixed">
+      <parent>world</parent>
+      <child>base</child>
+    </joint>
+    <link name="panel">
+      <pose>0 0 0.220 0 0 0</pose>
+      <inertial><mass>2.0</mass>
+        <inertia><ixx>0.05</ixx><iyy>0.03</iyy><izz>0.03</izz></inertia></inertial>
+      <visual name="panel_v">
+        <geometry><box><size>0.08 0.400 0.4</size></box></geometry>
+        <material><ambient>0.1 0.15 0.45 1.0</ambient><diffuse>0.1 0.15 0.45 1.0</diffuse></material>
+      </visual>
+      <visual name="light_1"><pose>-0.045 -0.1 0.1 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.035</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.95 0.75 0.0 1.0</ambient><diffuse>0.95 0.75 0.0 1.0</diffuse></material>
+      </visual>
+      <visual name="light_2"><pose>-0.045 0.1 0.1 0 1.5708 0</pose>
+        <geometry><cylinder><radius>0.035</radius><length>0.01</length></cylinder></geometry>
+        <material><ambient>0.95 0.75 0.0 1.0</ambient><diffuse>0.95 0.75 0.0 1.0</diffuse></material>
+      </visual>
+      <collision name="panel_c">
+        <geometry><box><size>0.08 0.400 0.4</size></box></geometry>
+      </collision>
+    </link>
+    <joint name="slide_joint" type="prismatic">
+      <parent>base</parent>
+      <child>panel</child>
+      <axis>
+        <xyz>0 1 0</xyz>
+        <limit><lower>-0.850</lower><upper>0.850</upper>
+          <effort>100</effort><velocity>1.0</velocity></limit>
+        <dynamics><damping>5.0</damping></dynamics>
+      </axis>
+    </joint>
+    <plugin filename="ignition-gazebo-joint-position-controller-system"
+            name="ignition::gazebo::systems::JointPositionController">
+      <joint_name>slide_joint</joint_name>
+      <topic>/course/slider_cmd</topic>
+      <p_gain>300</p_gain>
+      <i_gain>10</i_gain>
+      <d_gain>40</d_gain>
+      <cmd_max>100</cmd_max>
+      <cmd_min>-100</cmd_min>
+    </plugin>
+  </model>
+</sdf>

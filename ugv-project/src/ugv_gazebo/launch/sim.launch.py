@@ -6,6 +6,8 @@ Genelde dogrudan degil, ugv_bringup icinden cagrilir:
 Argumanlar:
     world  : .sdf dunya dosyasi (varsayilan: ugv_world.sdf)
     x y z yaw : robotun baslangic konumu
+    cmd_vel_topic : Gazebo'daki DiffDrive'in dinledigi hiz topic'i (varsayilan /cmd_vel).
+                    Parkurda su fizigi node'u araya girdigi icin /cmd_vel_gz verilir.
 """
 
 import os
@@ -33,9 +35,10 @@ def generate_launch_description():
     y = LaunchConfiguration('y')
     z = LaunchConfiguration('z')
     yaw = LaunchConfiguration('yaw')
+    cmd_vel_topic = LaunchConfiguration('cmd_vel_topic')
 
     robot_description = ParameterValue(
-        Command(['xacro ', xacro_file]), value_type=str)
+        Command(['xacro ', xacro_file, ' cmd_vel_topic:=', cmd_vel_topic]), value_type=str)
 
     # 0) model:// adreslerinin (tabelalar, hedef) bulunabilmesi icin model klasoru
     model_path = AppendEnvironmentVariable(
@@ -87,8 +90,9 @@ def generate_launch_description():
 
     core_bridge = bridge('bridge_core', [
         '/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock',
-        '/cmd_vel@geometry_msgs/msg/Twist]ignition.msgs.Twist',
+        [cmd_vel_topic, '@geometry_msgs/msg/Twist]ignition.msgs.Twist'],
         '/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
+        '/ground_truth/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry',
         '/tf@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V',
         '/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
         '/joint_states@sensor_msgs/msg/JointState[ignition.msgs.Model',
@@ -114,6 +118,7 @@ def generate_launch_description():
         DeclareLaunchArgument('y', default_value='0.0'),
         DeclareLaunchArgument('z', default_value='0.2'),
         DeclareLaunchArgument('yaw', default_value='0.0'),
+        DeclareLaunchArgument('cmd_vel_topic', default_value='/cmd_vel'),
         model_path,
         gazebo,
         robot_state_publisher,

@@ -2,7 +2,7 @@
 <!-- Gazebo Fortress surus ve eklem durumu eklentileri -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <xacro:macro name="ugv_gazebo" params="wheel_separation wheel_radius">
+  <xacro:macro name="ugv_gazebo" params="wheel_separation wheel_radius cmd_vel_topic:=/cmd_vel">
 
     <!-- Diff Drive: dort tekerlek tek eklentiyle surulur (skid-steer) -->
     <gazebo>
@@ -18,11 +18,24 @@
         <max_linear_acceleration>1.0</max_linear_acceleration>
         <max_angular_acceleration>2.0</max_angular_acceleration>
 
-        <topic>/cmd_vel</topic>
+        <topic>${cmd_vel_topic}</topic>
         <odom_topic>/odom</odom_topic>
         <tf_topic>/tf</tf_topic>
         <frame_id>odom</frame_id>
         <child_frame_id>base_link</child_frame_id>
+        <odom_publish_frequency>30</odom_publish_frequency>
+      </plugin>
+    </gazebo>
+
+    <!-- Gercek konum (ground truth): robotun dunyadaki tam konumu. Odometri gibi kaymaz;
+         su fizigi gibi parkur sistemleri robotun nerede oldugunu buradan ogrenir. -->
+    <gazebo>
+      <plugin filename="ignition-gazebo-odometry-publisher-system"
+              name="ignition::gazebo::systems::OdometryPublisher">
+        <odom_frame>world</odom_frame>
+        <robot_base_frame>base_link</robot_base_frame>
+        <odom_topic>/ground_truth/odom</odom_topic>
+        <tf_topic>/ground_truth/tf</tf_topic>
         <odom_publish_frequency>30</odom_publish_frequency>
       </plugin>
     </gazebo>

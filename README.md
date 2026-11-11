@@ -125,6 +125,7 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 - Autonomous navigation with Nav2 (AMCL localization, NavFn planner, Regulated Pure Pursuit controller)
 - Front, rear and aiming cameras; pan-tilt aiming turret with laser pointer
 - Camera perception: TEKNOFEST stage sign reading and shooting target detection (OpenCV)
+- TEKNOFEST 2026 UGV competition course in Gazebo (all 11 stages, scaled ×0.4) with custom water physics and a moving obstacle
 
 ### UGV Simulation
 
@@ -158,10 +159,11 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 ugv-project/src/
 ├── ugv_description/   # Robot model (xacro) + RViz display launch
 ├── ugv_gazebo/        # Gazebo Fortress worlds, course models + simulation launch
-├── ugv_bringup/       # Top-level launch files: sim, slam, nav, perception
+├── ugv_bringup/       # Top-level launch files: sim, slam, nav, perception, course
 ├── ugv_slam/          # slam_toolbox parameters + saved maps + sdf_to_map tool
 ├── ugv_navigation/    # Nav2 parameters + launch
 ├── ugv_perception/    # Stage sign + shooting target detection nodes (OpenCV)
+├── ugv_course/        # TEKNOFEST course world, water physics, sliding obstacle
 ├── ugv_control/       # LiDAR obstacle avoidance node
 └── ugv_odometry/      # Hand-written odometry node (M2 exercise)
 ```
@@ -206,6 +208,33 @@ Following the TEKNOFEST 2026 UGV rules, the robot carries a front and a rear dri
 - **Shooting target detector:** finds the concentric black rings of the target and reports how far the centre is from the crosshair, which will be used to aim the turret.
 
 Stage signs and the shooting target are generated as Gazebo models from the competition specification (scaled ×0.4 to match the robot) by `ugv_gazebo/scripts/make_course_models.py`.
+
+### TEKNOFEST 2026 UGV Course
+
+The competition course from the TEKNOFEST 2026 Unmanned Ground Vehicle specification (Figure 1) is built in Gazebo. All lengths are scaled ×0.4 to match the robot; slopes stay the same.
+
+<p align="center">
+  <img src="./ugv-project/src/ugv_course/docs/course_top_view.png" width="85%" alt="TEKNOFEST course top view" />
+</p>
+
+| Stage | Specification | Simulation (×0.4) |
+|---|---|---|
+| 1 Water crossing + rain | 40 cm deep | 16 cm pool with sloped entry/exit, custom water physics, rain particles |
+| 2 Gravel road | stones up to 5 cm | 90 stones up to 2 cm |
+| 3 Side slope | 20 % | 20 % with smooth entry/exit |
+| 4 Vertical obstacle | 15 cm | 6 cm block |
+| 5 Traffic cones | 40×40 cm base, 75 cm | 16×16 cm base, 31 cm, slalom |
+| 6 Sliding obstacle | 1 m wide, 20 cm/s, leaves the road | 0.4 m wide, 8 cm/s |
+| 7 Bumpy terrain | 20×5 cm bumps | 8×2 cm bumps |
+| 8 / 10 Steep slopes | 45 % up / down with stops | 45 %, stop lines |
+| 9 Shooting zone | target ≥ 10 m away | target 6.7 m from the platform |
+| 11 Acceleration track | 30 m + 10 m stop | 12 m + 4 m stop |
+
+Road width 3 m → 1.2 m, red-white barriers 80 cm → 32 cm, straight sections 20 m → 8 m.
+
+**Water physics:** Gazebo Fortress has no water for ground vehicles, and the diff-drive plugin sets wheel speeds directly, so drag forces would not slow the robot. The `water_physics` node sits between the velocity command and Gazebo (`/cmd_vel → water_physics → /cmd_vel_gz`) and uses the robot's ground-truth position: the deeper the robot is in the pool, the lower its top speed (up to −60 %), turning rate and acceleration, with a small random yaw drift for the slippery ground.
+
+The robot body was raised (ground clearance 2 cm → 7 cm) so it can climb the 6 cm step and the bumps without scraping.
 
 **Learning Notes:**
 
@@ -389,11 +418,51 @@ ros2 topic pub -1 /aim/pan_cmd std_msgs/msg/Float64 "{data: 0.3}"
 ros2 topic pub -1 /aim/tilt_cmd std_msgs/msg/Float64 "{data: 0.0}"
 ```
 
+### TEKNOFEST Course
+
+Start the course with water physics, the sliding obstacle, the camera detectors and RViz2:
+
+```bash
+ros2 launch ugv_bringup course.launch.py
+```
+
+Drive through the stages (new terminal):
+
+```bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
+
+Start on the acceleration track instead:
+
+```bash
+ros2 launch ugv_bringup course.launch.py start:=accel
+```
+
+Watch the water depth under the robot:
+
+```bash
+ros2 topic echo /course/water_depth
+```
+
+The course is generated from the specification by a script; after changing a dimension, regenerate it:
+
+```bash
+cd ugv-project/src/ugv_course
+python3 scripts/make_teknofest_course.py
+```
+
 Run the detection tests (no ROS needed):
 
 ```bash
 cd ugv-project/src/ugv_perception
 python3 -m pytest test/test_detection.py
+```
+
+Run the water physics and sliding obstacle tests:
+
+```bash
+cd ugv-project/src/ugv_course
+python3 -m pytest test/test_course_logic.py
 ```
 
 For more details, refer to the UGV project documentation.
@@ -409,9 +478,9 @@ This repository is continuously evolving as I explore more advanced robotics con
 | M1 | Robot Modeling (URDF) | Completed |
 | M2 | TF2 & Odometry | Completed |
 | M3 | Gazebo Simulation, LiDAR, SLAM & Mapping | Completed |
-| M4 | Navigation2 (Nav2) | In Progress |
-| M5 | Camera & Object Detection | In Progress |
-| M6 | TEKNOFEST 2026 UGV Course Simulation | Planned |
+| M4 | Navigation2 (Nav2) | Completed |
+| M5 | Camera & Object Detection | Completed |
+| M6 | TEKNOFEST 2026 UGV Course Simulation | In Progress |
 
 ---
 
