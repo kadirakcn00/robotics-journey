@@ -1,6 +1,6 @@
 # ROS2 Basics ; 
 
-**Version;** Foxy
+**Version;** Humble
 **Workspace;** ~/Desktop/ros2_ws
 
 ## 1.Node 
