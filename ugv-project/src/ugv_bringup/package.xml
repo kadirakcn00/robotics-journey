@@ -3,7 +3,7 @@
 <package format="3">
   <name>ugv_bringup</name>
   <version>0.0.0</version>
-  <description>Top-level launch files (simulation, SLAM, navigation) for the UGV</description>
+  <description>Top-level launch files (simulation, SLAM, navigation, perception) for the UGV</description>
   <maintainer email="kadirakcn444@gmail.com">kadir</maintainer>
   <license>TODO: License declaration</license>
 
@@ -12,6 +12,7 @@
   <exec_depend>ugv_navigation</exec_depend>
   <exec_depend>nav2_bringup</exec_depend>
   <exec_depend>ugv_control</exec_depend>
+  <exec_depend>ugv_perception</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>teleop_twist_keyboard</exec_depend>
   <exec_depend>launch</exec_depend>

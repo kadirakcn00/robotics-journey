@@ -24,6 +24,8 @@
 
   <xacro:include filename="$(find ugv_description)/urdf/inertial_macros.xacro"/>
   <xacro:include filename="$(find ugv_description)/urdf/lidar.xacro"/>
+  <xacro:include filename="$(find ugv_description)/urdf/camera.xacro"/>
+  <xacro:include filename="$(find ugv_description)/urdf/aim_turret.xacro"/>
   <xacro:include filename="$(find ugv_description)/urdf/ugv.gazebo.xacro"/>
 
   <!-- ================= Malzemeler ================= -->
@@ -95,6 +97,15 @@
 
   <!-- ================= Sensorler ================= -->
   <xacro:lidar parent="base_link" xyz="0.1 0 ${base_z + base_height/2 + 0.025}"/>
+
+  <!-- Surus kameralari (sartname 6.12: ileri ve geri surus kamerasi) -->
+  <xacro:camera short="front" parent="base_link" hfov="1.2"
+                xyz="${base_length/2 + 0.01} 0 ${base_z}" rpy="0 0 0"/>
+  <xacro:camera short="rear" parent="base_link" hfov="1.2"
+                xyz="${-base_length/2 - 0.01} 0 ${base_z}" rpy="0 0 ${pi}"/>
+
+  <!-- Nisan tareti + nisan kamerasi + lazer (LIDAR'in arkasinda) -->
+  <xacro:aim_turret parent="base_link" x="-0.15" z_base="${base_z + base_height/2}"/>
 
   <!-- ================= Gazebo eklentileri ================= -->
   <xacro:ugv_gazebo wheel_separation="${2*wheel_y}" wheel_radius="${wheel_radius}"/>

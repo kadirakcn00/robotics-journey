@@ -20,7 +20,7 @@ setup(
     zip_safe=True,
     maintainer='kadir',
     maintainer_email='kadirakcn444@gmail.com',
-    description='Top-level launch files (simulation, SLAM, navigation) for the UGV',
+    description='Top-level launch files (simulation, SLAM, navigation, perception) for the UGV',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={

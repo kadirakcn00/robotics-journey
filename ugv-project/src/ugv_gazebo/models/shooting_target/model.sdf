@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<sdf version="1.8">
+  <model name="shooting_target">
+    <static>true</static>
+    <link name="link">
+      <!-- Cerceve ayagi -->
+      <collision name="stand_collision">
+        <pose>0 0 0.15 0 0 0</pose>
+        <geometry><box><size>0.02 0.02 0.3</size></box></geometry>
+      </collision>
+      <visual name="stand_visual">
+        <pose>0 0 0.15 0 0 0</pose>
+        <geometry><box><size>0.02 0.02 0.3</size></box></geometry>
+        <material><ambient>0.4 0.25 0.1 1</ambient><diffuse>0.4 0.25 0.1 1</diffuse></material>
+      </visual>
+      <!-- Cerceve -->
+      <visual name="frame_visual">
+        <pose>0.003 0 0.3480 0 0 0</pose>
+        <geometry><box><size>0.004 0.1640 0.1160</size></box></geometry>
+        <material><ambient>0.4 0.25 0.1 1</ambient><diffuse>0.4 0.25 0.1 1</diffuse></material>
+      </visual>
+      <!-- Hedef kagidi: on yuzu -x yonune bakar -->
+      <collision name="paper_collision">
+        <pose>0 0 0.3480 0 0 0</pose>
+        <geometry><box><size>0.004 0.1640 0.1160</size></box></geometry>
+      </collision>
+      <visual name="paper_visual">
+        <pose>0 0 0.3480 0 0 0</pose>
+        <geometry><box><size>0.002 0.1440 0.0960</size></box></geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <pbr><metal>
+            <albedo_map>model://shooting_target/materials/textures/target.png</albedo_map>
+            <roughness>1.0</roughness>
+            <metalness>0.0</metalness>
+          </metal></pbr>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

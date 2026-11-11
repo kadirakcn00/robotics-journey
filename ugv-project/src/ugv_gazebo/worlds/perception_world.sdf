@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<!--
+  Kamera ve algilama test dunyasi (M5).
+  Robot (0, 0)'da +x yonune bakar:
+    - Onunde 2.5 m'de asama tabelalari: 2, 4, 6, 9  -> on kamera
+    - Arkasinda 2 m'de tabela 11                    -> geri kamera
+    - Onunde 4.5 m'de atis hedefi                   -> nisan kamerasi
+  Tabela ve hedef boyutlari sartnamenin 0.4 olcegindedir.
+-->
+<sdf version="1.8">
+  <world name="perception_world">
+
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="ignition-gazebo-physics-system"
+            name="ignition::gazebo::systems::Physics"/>
+    <plugin filename="ignition-gazebo-user-commands-system"
+            name="ignition::gazebo::systems::UserCommands"/>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system"
+            name="ignition::gazebo::systems::SceneBroadcaster"/>
+    <plugin filename="ignition-gazebo-sensors-system"
+            name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <scene>
+      <ambient>0.6 0.6 0.6 1</ambient>
+      <background>0.7 0.8 0.9 1</background>
+    </scene>
+
+    <!-- Gunes robotun arkasindan (+x yonune) vurur: tabelalarin yuzu aydinlik olur -->
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>0.6 0.2 -0.8</direction>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>50 50</size></plane></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>50 50</size></plane></geometry>
+          <material>
+            <ambient>0.45 0.55 0.4 1</ambient>
+            <diffuse>0.45 0.55 0.4 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- On kamera icin asama tabelalari -->
+    <include>
+      <uri>model://stage_sign_2</uri>
+      <name>sign_2</name>
+      <pose>2.5 -1.2 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://stage_sign_4</uri>
+      <name>sign_4</name>
+      <pose>2.5 -0.6 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://stage_sign_6</uri>
+      <name>sign_6</name>
+      <pose>2.5 0.6 0 0 0 0</pose>
+    </include>
+    <include>
+      <uri>model://stage_sign_9</uri>
+      <name>sign_9</name>
+      <pose>2.5 1.2 0 0 0 0</pose>
+    </include>
+
+    <!-- Arkadaki tabela: geri kamera icin (yuzu robota donuk) -->
+    <include>
+      <uri>model://stage_sign_11</uri>
+      <name>sign_11</name>
+      <pose>-2.0 0 0 0 0 3.14159</pose>
+    </include>
+
+    <!-- Atis hedefi: nisan kamerasi icin, olcekli 10 m -> 4 m+ -->
+    <include>
+      <uri>model://shooting_target</uri>
+      <name>target</name>
+      <pose>4.5 0 0 0 0 0</pose>
+    </include>
+
+  </world>
+</sdf>

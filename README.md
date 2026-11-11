@@ -123,6 +123,8 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 - LiDAR-based obstacle avoidance node
 - SLAM with `slam_toolbox` (online async mapping)
 - Autonomous navigation with Nav2 (AMCL localization, NavFn planner, Regulated Pure Pursuit controller)
+- Front, rear and aiming cameras; pan-tilt aiming turret with laser pointer
+- Camera perception: TEKNOFEST stage sign reading and shooting target detection (OpenCV)
 
 ### UGV Simulation
 
@@ -141,22 +143,25 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 | URDF / xacro | Defines the robot's physical structure and joints; dimensions are xacro properties. |
 | TF2 | Manages coordinate frames and transformations. |
 | Odometry | Estimates the robot's movement. |
-| LiDAR | Provides distance measurements of the surroundings. |
+| LiDAR | Provides distance measurements of the surroundings (±165°, the rear sector is blocked by the turret mast). |
+| Cameras | Front and rear driving cameras (69° FOV) and a narrow aiming camera (14° FOV) on a pan-tilt turret. |
 | Gazebo Fortress | Provides the physics simulation, diff-drive and LiDAR sensor. |
 | ros_gz_bridge | Bridges `/cmd_vel`, `/odom`, `/tf`, `/scan`, `/joint_states` and `/clock` between ROS 2 and Gazebo. |
 | RViz2 | Visualizes the robot model and sensor data. |
 | slam_toolbox | Builds a 2D occupancy grid map from LiDAR scans and odometry. |
 | Nav2 | Localizes the robot on the map (AMCL), plans a path and drives it to a goal. |
+| ugv_perception | Reads stage sign numbers and finds the shooting target in camera images. |
 
 ### Package Structure
 
 ```
 ugv-project/src/
 ├── ugv_description/   # Robot model (xacro) + RViz display launch
-├── ugv_gazebo/        # Gazebo Fortress worlds + simulation launch (spawn, bridge)
-├── ugv_bringup/       # Top-level launch files: sim, slam, nav
+├── ugv_gazebo/        # Gazebo Fortress worlds, course models + simulation launch
+├── ugv_bringup/       # Top-level launch files: sim, slam, nav, perception
 ├── ugv_slam/          # slam_toolbox parameters + saved maps + sdf_to_map tool
 ├── ugv_navigation/    # Nav2 parameters + launch
+├── ugv_perception/    # Stage sign + shooting target detection nodes (OpenCV)
 ├── ugv_control/       # LiDAR obstacle avoidance node
 └── ugv_odometry/      # Hand-written odometry node (M2 exercise)
 ```
@@ -192,6 +197,15 @@ The robot builds a map of the walled `ugv_world` with `slam_toolbox` while it is
 ### Navigation (Nav2)
 
 Nav2 localizes the robot on the saved map with AMCL, plans a path around the walls and obstacles and drives the robot to a goal selected in RViz2 with **2D Goal Pose**. The controller is Regulated Pure Pursuit, which slows down near obstacles and in tight turns.
+
+### Cameras & Perception
+
+Following the TEKNOFEST 2026 UGV rules, the robot carries a front and a rear driving camera and an aiming camera with a laser pointer on a pan-tilt turret. The `ugv_perception` package processes the images with OpenCV:
+
+- **Stage sign reader:** finds red circular signs, normalizes the perspective and reads the number by template matching against the sign textures. On 600 random synthetic scenes (different sizes, angles, lighting and noise) it never read a wrong number; when it is unsure it skips the sign instead.
+- **Shooting target detector:** finds the concentric black rings of the target and reports how far the centre is from the crosshair, which will be used to aim the turret.
+
+Stage signs and the shooting target are generated as Gazebo models from the competition specification (scaled ×0.4 to match the robot) by `ugv_gazebo/scripts/make_course_models.py`.
 
 **Learning Notes:**
 
@@ -230,7 +244,8 @@ Install the simulation dependencies:
 ```bash
 sudo apt install ros-humble-ros-gz ros-humble-xacro ros-humble-robot-state-publisher \
   ros-humble-joint-state-publisher-gui ros-humble-teleop-twist-keyboard \
-  ros-humble-slam-toolbox ros-humble-navigation2 ros-humble-nav2-bringup
+  ros-humble-slam-toolbox ros-humble-navigation2 ros-humble-nav2-bringup \
+  ros-humble-cv-bridge python3-opencv
 ```
 
 `ros-humble-ros-gz` installs Gazebo Fortress, which is the officially paired Gazebo version for ROS 2 Humble.
@@ -352,6 +367,35 @@ In RViz2, click **2D Goal Pose** and pick a point on the map; the robot plans a 
 ros2 launch ugv_bringup nav.launch.py map:=/full/path/to/map.yaml
 ```
 
+### Cameras & Perception
+
+Start the perception test world (stage signs in front of and behind the robot, the shooting target 4.5 m ahead) with the sign and target detectors and RViz2 showing the three camera views:
+
+```bash
+ros2 launch ugv_bringup perception.launch.py
+```
+
+Watch the detections:
+
+```bash
+ros2 topic echo /perception/front/stage_sign
+ros2 topic echo /perception/aim/target
+```
+
+Turn the aiming turret (radians):
+
+```bash
+ros2 topic pub -1 /aim/pan_cmd std_msgs/msg/Float64 "{data: 0.3}"
+ros2 topic pub -1 /aim/tilt_cmd std_msgs/msg/Float64 "{data: 0.0}"
+```
+
+Run the detection tests (no ROS needed):
+
+```bash
+cd ugv-project/src/ugv_perception
+python3 -m pytest test/test_detection.py
+```
+
 For more details, refer to the UGV project documentation.
 
 ---
@@ -366,7 +410,7 @@ This repository is continuously evolving as I explore more advanced robotics con
 | M2 | TF2 & Odometry | Completed |
 | M3 | Gazebo Simulation, LiDAR, SLAM & Mapping | Completed |
 | M4 | Navigation2 (Nav2) | In Progress |
-| M5 | Camera & Object Detection | Planned |
+| M5 | Camera & Object Detection | In Progress |
 | M6 | TEKNOFEST 2026 UGV Course Simulation | Planned |
 
 ---

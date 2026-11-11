@@ -1,0 +1,63 @@
+<?xml version="1.0"?>
+<!--
+  Kamera makrosu: kamera link'i + optik cerceve + Gazebo Fortress kamera sensoru.
+  Goruntu  : /camera/<short>/image_raw
+  Kalibrasyon: /camera/<short>/camera_info
+  Optik cerceve ROS kuralina uyar: z ileri, x saga, y asagi.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="camera" params="short parent xyz rpy hfov width:=640 height:=480 rate:=15">
+    <link name="${short}_camera_link">
+      <visual>
+        <geometry><box size="0.02 0.04 0.025"/></geometry>
+        <material name="black"/>
+      </visual>
+      <collision>
+        <geometry><box size="0.02 0.04 0.025"/></geometry>
+      </collision>
+      <xacro:box_inertia m="0.02" x="0.02" y="0.04" z="0.025"/>
+    </link>
+
+    <joint name="${short}_camera_joint" type="fixed">
+      <parent link="${parent}"/>
+      <child link="${short}_camera_link"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+    </joint>
+
+    <link name="${short}_camera_optical_frame"/>
+    <joint name="${short}_camera_optical_joint" type="fixed">
+      <parent link="${short}_camera_link"/>
+      <child link="${short}_camera_optical_frame"/>
+      <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    </joint>
+
+    <gazebo reference="${short}_camera_link">
+      <sensor name="${short}_camera" type="camera">
+        <always_on>true</always_on>
+        <update_rate>${rate}</update_rate>
+        <visualize>false</visualize>
+        <topic>/camera/${short}/image_raw</topic>
+        <ignition_frame_id>${short}_camera_optical_frame</ignition_frame_id>
+        <camera>
+          <horizontal_fov>${hfov}</horizontal_fov>
+          <image>
+            <width>${width}</width>
+            <height>${height}</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.05</near>
+            <far>50.0</far>
+          </clip>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.007</stddev>
+          </noise>
+        </camera>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+
+</robot>

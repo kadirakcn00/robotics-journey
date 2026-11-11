@@ -35,10 +35,11 @@
         <lidar>
           <scan>
             <horizontal>
-              <samples>360</samples>
+              <!-- +-165 derece: arkadaki nisan tareti diregi taramaya girmesin -->
+              <samples>331</samples>
               <resolution>1</resolution>
-              <min_angle>-3.14159</min_angle>
-              <max_angle>3.14159</max_angle>
+              <min_angle>-2.87979</min_angle>
+              <max_angle>2.87979</max_angle>
             </horizontal>
           </scan>
           <range>
