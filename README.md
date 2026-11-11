@@ -122,6 +122,7 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 - LiDAR sensor integration (`gpu_lidar`)
 - LiDAR-based obstacle avoidance node
 - SLAM with `slam_toolbox` (online async mapping)
+- Autonomous navigation with Nav2 (AMCL localization, NavFn planner, Regulated Pure Pursuit controller)
 
 ### UGV Simulation
 
@@ -145,6 +146,7 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 | ros_gz_bridge | Bridges `/cmd_vel`, `/odom`, `/tf`, `/scan`, `/joint_states` and `/clock` between ROS 2 and Gazebo. |
 | RViz2 | Visualizes the robot model and sensor data. |
 | slam_toolbox | Builds a 2D occupancy grid map from LiDAR scans and odometry. |
+| Nav2 | Localizes the robot on the map (AMCL), plans a path and drives it to a goal. |
 
 ### Package Structure
 
@@ -152,8 +154,9 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 ugv-project/src/
 ├── ugv_description/   # Robot model (xacro) + RViz display launch
 ├── ugv_gazebo/        # Gazebo Fortress worlds + simulation launch (spawn, bridge)
-├── ugv_bringup/       # Top-level launch files: sim, slam
-├── ugv_slam/          # slam_toolbox parameters + saved maps
+├── ugv_bringup/       # Top-level launch files: sim, slam, nav
+├── ugv_slam/          # slam_toolbox parameters + saved maps + sdf_to_map tool
+├── ugv_navigation/    # Nav2 parameters + launch
 ├── ugv_control/       # LiDAR obstacle avoidance node
 └── ugv_odometry/      # Hand-written odometry node (M2 exercise)
 ```
@@ -184,7 +187,11 @@ LiDAR integration is part of the ongoing work toward environmental perception an
 
 ### SLAM & Mapping
 
-The robot builds a map of the walled `ugv_world` with `slam_toolbox` while it is driven around with the keyboard. The finished map is saved with `nav2_map_server` and will be used by Nav2 in the next module.
+The robot builds a map of the walled `ugv_world` with `slam_toolbox` while it is driven around with the keyboard. The finished map is saved with `nav2_map_server`.
+
+### Navigation (Nav2)
+
+Nav2 localizes the robot on the saved map with AMCL, plans a path around the walls and obstacles and drives the robot to a goal selected in RViz2 with **2D Goal Pose**. The controller is Regulated Pure Pursuit, which slows down near obstacles and in tight turns.
 
 **Learning Notes:**
 
@@ -223,7 +230,7 @@ Install the simulation dependencies:
 ```bash
 sudo apt install ros-humble-ros-gz ros-humble-xacro ros-humble-robot-state-publisher \
   ros-humble-joint-state-publisher-gui ros-humble-teleop-twist-keyboard \
-  ros-humble-slam-toolbox ros-humble-nav2-map-server
+  ros-humble-slam-toolbox ros-humble-navigation2 ros-humble-nav2-bringup
 ```
 
 `ros-humble-ros-gz` installs Gazebo Fortress, which is the officially paired Gazebo version for ROS 2 Humble.
@@ -329,6 +336,22 @@ ros2 run nav2_map_server map_saver_cli -f ugv_world
 
 This writes `ugv_world.pgm` and `ugv_world.yaml`. Rebuild (`colcon build`) so the map is installed with the package.
 
+> The repository already contains a reference `ugv_world` map generated directly from the world file with `ugv_slam/scripts/sdf_to_map.py`, so Nav2 works before you build your own map. Saving the SLAM map with the same name replaces it.
+
+### Navigate Autonomously with Nav2
+
+Start the simulation together with Nav2:
+
+```bash
+ros2 launch ugv_bringup nav.launch.py
+```
+
+In RViz2, click **2D Goal Pose** and pick a point on the map; the robot plans a path and drives there. To use a different map:
+
+```bash
+ros2 launch ugv_bringup nav.launch.py map:=/full/path/to/map.yaml
+```
+
 For more details, refer to the UGV project documentation.
 
 ---
@@ -341,8 +364,8 @@ This repository is continuously evolving as I explore more advanced robotics con
 |---|---|---|
 | M1 | Robot Modeling (URDF) | Completed |
 | M2 | TF2 & Odometry | Completed |
-| M3 | Gazebo Simulation, LiDAR, SLAM & Mapping | In Progress |
-| M4 | Navigation2 (Nav2) | Planned |
+| M3 | Gazebo Simulation, LiDAR, SLAM & Mapping | Completed |
+| M4 | Navigation2 (Nav2) | In Progress |
 | M5 | Camera & Object Detection | Planned |
 | M6 | TEKNOFEST 2026 UGV Course Simulation | Planned |
 
