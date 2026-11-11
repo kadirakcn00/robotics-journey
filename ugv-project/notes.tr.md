@@ -21,8 +21,11 @@
   - [6. Odometri ve Nav2](#6-odometri-ve-nav2)
 - [M3: Gazebo Simülasyonu,LIDAR,SLAM ve Haritalama](#m3-gazebo-simülasyonu-lidar-slam-ve-haritalama)
   - [Inertial](#inertial)
+  - [Gazebo Classic'ten Gazebo Fortress'a Geçiş](#gazebo-classicten-gazebo-fortressa-geçiş)
   - [Gaseboda Urdf Dosyamızı Çalıştırmak](#gaseboda-urdf-dosyamızı-çalıştırmak)
   - [Gaseboda Robotumuzu Hareket Ettirme ve Gazebo Tagi](#gaseboda-robotumuzu-hareket-ettirme-ve-gazebo-tagi)
+  - [Robotumuza LIDAR Ekleme](#robotumuza-lidar-ekleme)
+  - [LIDAR ile Engel Görüp Yön Değiştiren Robot Modeli](#lidar-ile-engel-görüp-yön-değiştiren-robot-modeli)
 
 ---
 
@@ -31,7 +34,7 @@
 
 # M1: URDF (Robot Modeli)
 
-**Ortam:** Ubuntu 20.04 + ROS 2 Foxy  
+**Ortam:** Ubuntu 22.04 + ROS 2 Humble  
 **Proje:** Dört tekerlekli kara robotu (UGV)  
 **Dosya:** ~/Desktop/ros2_ws/src/ugv_project/ugv_description/urdf/ugv.urdf
 
@@ -377,7 +380,7 @@ Terminal 3:
 rviz2
 ```
 
-Her yeni terminalde önce `source /opt/ros/foxy/setup.bash` yapmayı unutma.
+Her yeni terminalde önce `source /opt/ros/humble/setup.bash` yapmayı unutma.
 
 ---
 
@@ -1086,90 +1089,147 @@ izz = 5/12 · (0.25 + 0.09) = 0.1417
 ```
 
 
-## Gaseboda Urdf Dosyamızı Çalıştırmak 
+## Gazebo Classic'ten Gazebo Fortress'a Geçiş
 
-1. Gaseboyu açalım ; 
+İlk başta projeyi **Gazebo Classic 11** ile yapmıştım. Ancak Gazebo Classic'in ömrü bitti (EOL: Ocak 2025) ve ROS 2 Humble'ın resmi olarak eşleştiği sürüm **Gazebo Fortress** (eski adıyla Ignition Gazebo 6). Bu yüzden projeyi Fortress'a taşıdım.
+
+En büyük fark şu: Gazebo Classic'te pluginler (`libgazebo_ros_*.so`) doğrudan ROS topic'i yayınlıyordu. Fortress'ta ise Gazebo kendi topic sistemini kullanıyor; ROS 2 ile Gazebo arasındaki bağlantıyı **`ros_gz_bridge`** adında bir köprü kuruyor.
+
+| Konu | Gazebo Classic 11 | Gazebo Fortress |
+|---|---|---|
+| Kurulum | `ros-humble-gazebo-ros-pkgs` | `ros-humble-ros-gz` |
+| Gazebo'yu açma | `ros2 launch gazebo_ros gazebo.launch.py` | `ros2 launch ros_gz_sim gz_sim.launch.py` |
+| Robot ekleme | `ros2 run gazebo_ros spawn_entity.py` | `ros2 run ros_gz_sim create` |
+| Diff drive | `libgazebo_ros_diff_drive.so` | `ignition-gazebo-diff-drive-system` |
+| LIDAR | `type="ray"` + `libgazebo_ros_ray_sensor.so` | `type="gpu_lidar"` + world'de `Sensors` sistemi |
+| ROS bağlantısı | Plugin doğrudan yayınlar | `ros_gz_bridge` köprüsü gerekir |
+
+**Kurulum:**
 
 ```bash
-source /opt/ros/foxy/setup.bash
-ros2 launch gazebo_ros gazebo.launch.py
+sudo apt install ros-humble-ros-gz ros-humble-teleop-twist-keyboard
 ```
 
-2. Robotu ekleyelim
+## Gazeboda Urdf Dosyamızı Çalıştırmak 
+
+Her şeyi tek tek terminale yazmak yerine bir launch dosyası hazırladım: [gazebo.launch.py](src/ugv_description/launch/gazebo.launch.py)
+
+Bu launch dosyası sırasıyla şunları yapıyor;
+
+1. Gazebo Fortress'ı bizim dünyamızla (`worlds/ugv_world.sdf`) açar. Dünyada zemin, güneş ve LIDAR'ı test etmek için birkaç engel var.
+2. `robot_state_publisher` ile URDF'i `/robot_description` topic'ine yayınlar.
+3. `ros_gz_sim create` ile robotu bu topic'ten okuyup Gazebo'ya ekler (`-z 0.2` ile biraz yukarıdan bırakıyoruz).
+4. `ros_gz_bridge` ile ROS 2 ve Gazebo topic'lerini birbirine bağlar.
+
+**Derleme ve Çalıştırma:**
 
 ```bash
-source /opt/ros/foxy/setup.bash
-ros2 run gazebo_ros spawn_entity.py -entity ugv -file ~/Desktop/ros2_ws/src/ugv_project/ugv_description/urdf/ugv.urdf -z 0.2
+source /opt/ros/humble/setup.bash
+cd ugv-project
+colcon build
+source install/setup.bash
+ros2 launch ugv_description gazebo.launch.py
+```
+
+RViz2'yi de birlikte açmak için;
+
+```bash
+ros2 launch ugv_description gazebo.launch.py rviz:=true
 ```
 
 Ve böyle görünüyor;
 
 ![gazebo](images/gazebo.png)
 
+**Elle Çalıştırmak İstersek (launch dosyası olmadan):**
+
+```bash
+ros2 launch ros_gz_sim gz_sim.launch.py gz_args:="-r empty.sdf"
+```
+
+```bash
+ros2 run ros_gz_sim create -name ugv -file ~/robotics-journey/ugv-project/src/ugv_description/urdf/ugv.urdf -z 0.2
+```
+
+### ROS 2 - Gazebo Köprüsü (ros_gz_bridge)
+
+Köprüdeki her satır şu formattadır;
+
+```
+/topic_adi@ROS_MESAJ_TIPI[GAZEBO_MESAJ_TIPI
+```
+
+- `[` : Gazebo → ROS 2 yönünde
+- `]` : ROS 2 → Gazebo yönünde
+
+| Topic | Yön | Ne İşe Yarar? |
+|---|---|---|
+| /clock | Gazebo → ROS | Simülasyon zamanı (`use_sim_time`) |
+| /cmd_vel | ROS → Gazebo | Robota hız komutu |
+| /odom | Gazebo → ROS | Diff drive'ın hesapladığı odometri |
+| /tf | Gazebo → ROS | `odom → base_link` dönüşümü |
+| /scan | Gazebo → ROS | LIDAR verisi |
+| /joint_states | Gazebo → ROS | Tekerlek açıları (RViz'de tekerlekler dönsün diye) |
+
 
 ## Gaseboda Robotumuzu Hareket Ettirme ve Gazebo Tagi
 
-1. Bunun için URDF dosyamıza <gazebo> tagi açmamız lazım ;
+1. Bunun için URDF dosyamıza <gazebo> tagi açmamız lazım.
 
-Ben ön ve arka tekerlekler için ayrı ayrı gazebo tagi kullandım 
-
-- Ön Tekerlekler İçin
+Classic'te ön ve arka tekerlekler için iki ayrı plugin kullanıyordum. Fortress'taki DiffDrive sistemi birden fazla `left_joint` / `right_joint` kabul ettiği için dört tekerleği **tek bir plugin** ile sürebiliyoruz.
 
 ```urdf
-<gazebo>
-	<plugin name="front_wheel" filename="libgazebo_ros_diff_drive.so">
-    	<!-- Tekerlek Bilgisi -->
-        <left_joint>left_front_wheel_joint</left_joint>
-        <right_joint>right_front_wheel_joint</right_joint>
-        <wheel_separation>0.064</wheel_separation>
-        <wheel_diameter>0.098</wheel_diameter>
- 
-        <!-- Limitimiz -->
-        <max_wheel_torque>200</max_wheel_torque>
-        <max_wheel_acceleration>10.0</max_wheel_acceleration>
- 
-        <!-- Çıktı -->
-        <odometry_frame>odom</odometry_frame>
-        <robot_base_frame>base_link</robot_base_frame>
- 
-        <publish_odom>true</publish_odom>
-        <publish_odom_tf>true</publish_odom_tf>
-        <publish_wheel_tf>true</publish_wheel_tf>
- 
-	</plugin>
+  <gazebo>
+    <plugin filename="ignition-gazebo-diff-drive-system"
+            name="ignition::gazebo::systems::DiffDrive">
+      <!-- Tekerlek Bilgisi -->
+      <left_joint>left_front_wheel_joint</left_joint>
+      <left_joint>left_back_wheel_joint</left_joint>
+      <right_joint>right_front_wheel_joint</right_joint>
+      <right_joint>right_back_wheel_joint</right_joint>
+      <wheel_separation>0.34</wheel_separation>
+      <wheel_radius>0.07</wheel_radius>
+
+      <!-- Limitimiz -->
+      <max_linear_acceleration>1.0</max_linear_acceleration>
+      <max_angular_acceleration>2.0</max_angular_acceleration>
+
+      <!-- Topic'ler ve Frame'ler -->
+      <topic>/cmd_vel</topic>
+      <odom_topic>/odom</odom_topic>
+      <tf_topic>/tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+      <odom_publish_frequency>30</odom_publish_frequency>
+    </plugin>
   </gazebo>
 ```
 
-- Arka Tekerlekler İçin ; 
+| Tag | Ne İşe Yarar? |
+|---|---|
+| left_joint / right_joint | Sol ve sağ taraftaki tekerlek eklemleri |
+| wheel_separation | Sol ve sağ tekerlek arası mesafe. Tekerlekler y = ±0.17'de olduğu için 0.34 m |
+| wheel_radius | Tekerlek yarıçapı, 0.07 m |
+| topic | Hız komutlarını dinlediği topic (`/cmd_vel`) |
+| odom_topic / tf_topic | Odometri ve TF'in yayınlandığı topic'ler |
+| frame_id / child_frame_id | `odom → base_link` dönüşümü |
+
+**Not:** Classic versiyonundaki `wheel_separation 0.064` ve `wheel_diameter 0.098` değerleri bizim robotumuza ait değildi (örnek bir robottan kalmıştı). Fortress'a geçerken robotumuzun gerçek ölçülerine göre düzelttim. Bu değerler yanlış olursa robot dönerken ve odometri hesaplarken hata yapar.
+
+2. Tekerlek açılarının RViz'e gitmesi için JointStatePublisher sistemini de ekliyoruz;
 
 ```urdf
-<gazebo>
-	<plugin name="back_wheel" filename="libgazebo_ros_diff_drive.so">
-    	<!-- Tekerlek Bilgisi -->
-        <left_joint>left_back_wheel_joint</left_joint>
-        <right_joint>right_back_wheel_joint</right_joint>
-        <wheel_separation>0.064</wheel_separation>
-        <wheel_diameter>0.098</wheel_diameter>
- 
-        <!-- Limitimiz -->
-        <max_wheel_torque>200</max_wheel_torque>
-        <max_wheel_acceleration>10.0</max_wheel_acceleration>
- 
-        <!-- Çıktı -->
-        <odometry_frame>odom</odometry_frame>
-        <robot_base_frame>base_link</robot_base_frame>
- 
-        <publish_odom>true</publish_odom>
-        <publish_odom_tf>true</publish_odom_tf>
-        <publish_wheel_tf>true</publish_wheel_tf>
- 
-	</plugin>
+  <gazebo>
+    <plugin filename="ignition-gazebo-joint-state-publisher-system"
+            name="ignition::gazebo::systems::JointStatePublisher">
+      <topic>/joint_states</topic>
+    </plugin>
   </gazebo>
 ```
 
 Bunları hemen <robot> tagini kapatmadan bir üst satıra ekliyoruz. 
 
-Gazeboda robot projemizi açıyoruz ve şu komutları ayrı bir terminale topicimizi çalıştırmak için yazıyor ; 
+Gazeboda robot projemizi açıyoruz ve şu komutları ayrı bir terminale topicimizi çalıştırmak için yazıyoruz ; 
 
 ```bash
 ros2 topic pub --once /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.2}}"
@@ -1189,6 +1249,8 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ```
 
 ![simulation](images/simulation.gif)
+
+**Not:** Gazebo'da `/odom` ve `odom → base_link` TF'ini artık DiffDrive sistemi yayınlıyor. M2'de yazdığımız `ugv_odometry/odom_node` bir öğrenme egzersizi; simülasyonla birlikte çalıştırırsak iki node aynı TF'i yayınlar ve robot RViz'de zıplar.
 
 ## Robotumuza LIDAR Ekleme
 
@@ -1229,7 +1291,7 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
   <joint name="lidar_joint" type="fixed">
     <parent link="base_link"/>
     <child link="lidar_link"/>
-    <origin xyz="0.1 0 0.125" rpy="0 0 0"/>
+    <origin xyz="0.1 0 0.245" rpy="0 0 0"/>
   </joint>
 ```
 
@@ -1241,11 +1303,14 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 
 ```urdf
   <gazebo reference="lidar_link">
-    <sensor type="ray" name="lidar_sensor">
+    <sensor name="lidar_sensor" type="gpu_lidar">
       <pose>0 0 0 0 0 0</pose>
+      <topic>/scan</topic>
+      <ignition_frame_id>lidar_link</ignition_frame_id>
+      <always_on>true</always_on>
       <visualize>true</visualize>
       <update_rate>10</update_rate>
-      <ray>
+      <lidar>
         <scan>
           <horizontal>
             <samples>360</samples>
@@ -1259,14 +1324,7 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
           <max>10.0</max>
           <resolution>0.01</resolution>
         </range>
-      </ray>
-      <plugin name="lidar_plugin" filename="libgazebo_ros_ray_sensor.so">
-        <ros>
-          <remapping>~/out:=scan</remapping>
-        </ros>
-        <output_type>sensor_msgs/LaserScan</output_type>
-        <frame_name>lidar_link</frame_name>
-      </plugin>
+      </lidar>
     </sensor>
   </gazebo>
 ```
@@ -1277,12 +1335,22 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 
 | Tag | Ne İşe Yarar? |
 |---|---|
+| type="gpu_lidar" | Fortress'taki lidar sensör tipi (Classic'te `ray` idi) |
+| topic | Verinin Gazebo'da yayınlandığı topic, köprü bunu ROS'taki `/scan`'e taşır |
+| ignition_frame_id | Mesajın hangi TF çerçevesinde olduğunu söyler (lidar_link) |
 | visualize | Gazebo’da lazer ışınlarını çizer, kontrol için kullanışlıdır |
 | update_rate | Saniyede tarama sayısı , Biz 10 dedik |
 | samples | Tam turda kaç ışın atacağımızı belirleriz , Biz 360 ışın atıyoruz yani her derece başı 1 tane|
 | range | Ölçüm aralığı |
-| remapping ~/out:=scan | Çıktıyı /scan topic’ine yönlendirir | 
-| frame_name |	Mesajın hangi TF çerçevesinde olduğunu söyler (lidar_link) | 
+
+- **Önemli:** Fortress'ta sensörlerin çalışması için world dosyasında `Sensors` sisteminin yüklü olması gerekiyor. Bizim [ugv_world.sdf](src/ugv_description/worlds/ugv_world.sdf) dosyamızda bu zaten var;
+
+```xml
+<plugin filename="ignition-gazebo-sensors-system"
+        name="ignition::gazebo::systems::Sensors">
+  <render_engine>ogre2</render_engine>
+</plugin>
+```
 
 
 3. Çalıştırma Aşaması 
@@ -1290,10 +1358,14 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 - Linklerimiz doğru yüklenmiş mi kontrol ediyoruz;
 
 ```bash
-check_urdf ~/Desktop/ros2_ws/src/ugv_project/ugv_description/urdf/ugv.urdf
+check_urdf ~/robotics-journey/ugv-project/src/ugv_description/urdf/ugv.urdf
 ```
 
 - Projemizi gazeboda çalıştırıyoruz 
+
+```bash
+ros2 launch ugv_description gazebo.launch.py
+```
 
 -Topic bilgilerimizi kontrol edelim 
 
@@ -1305,6 +1377,12 @@ check_urdf ~/Desktop/ros2_ws/src/ugv_project/ugv_description/urdf/ugv.urdf
 ros2 topic info /scan
 ros2 topic hz /scan
 ros2 topic echo /scan 
+```
+
+- Gazebo tarafındaki topic'leri görmek için;
+
+```bash
+ign topic -l
 ```
 
 Böyle görünmesi gerekiyor; 
@@ -1323,16 +1401,12 @@ Aşağıdaki bağlantıdaki .py dosyasında bu algoritma mevcut ;
 
 [Algoritma](src/ugv_control/ugv_control/avoid_node.py)
 
+Simülasyon açıkken ayrı bir terminalde çalıştırıyoruz;
+
+```bash
+ros2 run ugv_control avoid_node
+```
+
 Bir cisim görünce robotumuz böyle bir tepki veriyor ; 
 
 ![Algoritma_gif](images/Algoritma.gif)
-
-
-
-
-
-
-
-
-
-

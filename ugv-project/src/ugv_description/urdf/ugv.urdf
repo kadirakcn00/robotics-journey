@@ -172,58 +172,60 @@
     <origin xyz="0.1 0 0.245" rpy="0 0 0"/>
   </joint>
   
- <gazebo>
-	<plugin name="front_wheel" filename="libgazebo_ros_diff_drive.so">
-    	<!-- Tekerlek Bilgisi -->
-        <left_joint>left_front_wheel_joint</left_joint>
-        <right_joint>right_front_wheel_joint</right_joint>
-        <wheel_separation>0.064</wheel_separation>
-        <wheel_diameter>0.098</wheel_diameter>
- 
-        <!-- Limitimiz -->
-        <max_wheel_torque>200</max_wheel_torque>
-        <max_wheel_acceleration>10.0</max_wheel_acceleration>
- 
-        <!-- Çıktı -->
-        <odometry_frame>odom</odometry_frame>
-        <robot_base_frame>base_link</robot_base_frame>
- 
-        <publish_odom>true</publish_odom>
-        <publish_odom_tf>true</publish_odom_tf>
-        <publish_wheel_tf>true</publish_wheel_tf>
- 
-	</plugin>
+  <!-- ============================================================ -->
+  <!--  Gazebo Fortress (Ignition Gazebo 6) eklentileri               -->
+  <!-- ============================================================ -->
+
+  <!-- Tekerlek surtunmesi -->
+  <gazebo reference="right_front_wheel"><mu1>1.0</mu1><mu2>1.0</mu2></gazebo>
+  <gazebo reference="right_back_wheel"><mu1>1.0</mu1><mu2>1.0</mu2></gazebo>
+  <gazebo reference="left_front_wheel"><mu1>1.0</mu1><mu2>1.0</mu2></gazebo>
+  <gazebo reference="left_back_wheel"><mu1>1.0</mu1><mu2>1.0</mu2></gazebo>
+
+  <!-- Diff Drive: dort tekerlek tek eklentiyle surulur (skid-steer) -->
+  <gazebo>
+    <plugin filename="ignition-gazebo-diff-drive-system"
+            name="ignition::gazebo::systems::DiffDrive">
+      <!-- Tekerlek Bilgisi -->
+      <left_joint>left_front_wheel_joint</left_joint>
+      <left_joint>left_back_wheel_joint</left_joint>
+      <right_joint>right_front_wheel_joint</right_joint>
+      <right_joint>right_back_wheel_joint</right_joint>
+      <wheel_separation>0.34</wheel_separation>
+      <wheel_radius>0.07</wheel_radius>
+
+      <!-- Limitimiz -->
+      <max_linear_acceleration>1.0</max_linear_acceleration>
+      <max_angular_acceleration>2.0</max_angular_acceleration>
+
+      <!-- Topic'ler ve Frame'ler -->
+      <topic>/cmd_vel</topic>
+      <odom_topic>/odom</odom_topic>
+      <tf_topic>/tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+      <odom_publish_frequency>30</odom_publish_frequency>
+    </plugin>
   </gazebo>
 
-<gazebo>
-	<plugin name="back_wheel" filename="libgazebo_ros_diff_drive.so">
-    	<!-- Tekerlek Bilgisi -->
-        <left_joint>left_back_wheel_joint</left_joint>
-        <right_joint>right_back_wheel_joint</right_joint>
-        <wheel_separation>0.064</wheel_separation>
-        <wheel_diameter>0.098</wheel_diameter>
- 
-        <!-- Limitimiz -->
-        <max_wheel_torque>200</max_wheel_torque>
-        <max_wheel_acceleration>10.0</max_wheel_acceleration>
- 
-        <!-- Çıktı -->
-        <odometry_frame>odom</odometry_frame>
-        <robot_base_frame>base_link</robot_base_frame>
- 
-        <publish_odom>true</publish_odom>
-        <publish_odom_tf>true</publish_odom_tf>
-        <publish_wheel_tf>true</publish_wheel_tf>
- 
-	</plugin>
-  </gazebo>  
-  
-   <gazebo reference="lidar_link">
-    <sensor type="ray" name="lidar_sensor">
+  <!-- Tekerlek eklem durumlarini yayinlar (robot_state_publisher icin) -->
+  <gazebo>
+    <plugin filename="ignition-gazebo-joint-state-publisher-system"
+            name="ignition::gazebo::systems::JointStatePublisher">
+      <topic>/joint_states</topic>
+    </plugin>
+  </gazebo>
+
+  <!-- LIDAR sensoru (gpu_lidar) -->
+  <gazebo reference="lidar_link">
+    <sensor name="lidar_sensor" type="gpu_lidar">
       <pose>0 0 0 0 0 0</pose>
+      <topic>/scan</topic>
+      <ignition_frame_id>lidar_link</ignition_frame_id>
+      <always_on>true</always_on>
       <visualize>true</visualize>
       <update_rate>10</update_rate>
-      <ray>
+      <lidar>
         <scan>
           <horizontal>
             <samples>360</samples>
@@ -237,15 +239,8 @@
           <max>10.0</max>
           <resolution>0.01</resolution>
         </range>
-      </ray>
-      <plugin name="lidar_plugin" filename="libgazebo_ros_ray_sensor.so">
-        <ros>
-          <remapping>~/out:=scan</remapping>
-        </ros>
-        <output_type>sensor_msgs/LaserScan</output_type>
-        <frame_name>lidar_link</frame_name>
-      </plugin>
+      </lidar>
     </sensor>
   </gazebo>
-  
+
 </robot>

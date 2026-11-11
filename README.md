@@ -11,7 +11,7 @@ A hands-on journey into ROS 2, robot simulation, autonomous systems and mobile r
 <img src="https://img.shields.io/badge/ROS_2-Humble-blue?logo=ros" />
 <img src="https://img.shields.io/badge/Python-3.x-yellow?logo=python" />
 <img src="https://img.shields.io/badge/Ubuntu-22.04-orange?logo=ubuntu" />
-<img src="https://img.shields.io/badge/Gazebo-Classic_11-blue" />
+<img src="https://img.shields.io/badge/Gazebo-Fortress-blue" />
 <img src="https://img.shields.io/badge/Project-Active-brightgreen" />
 
 </div>
@@ -106,7 +106,7 @@ flowchart LR
 
 ## 2. UGV Project
 
-The UGV project focuses on developing a simulated four-wheeled **Unmanned Ground Vehicle** using ROS 2 Humble and Gazebo Classic 11.
+The UGV project focuses on developing a simulated four-wheeled **Unmanned Ground Vehicle** using ROS 2 Humble and Gazebo Fortress (Ignition Gazebo 6), connected through `ros_gz`.
 
 The project explores how robot descriptions, coordinate frames, sensor data and odometry work together in a simulated mobile robot.
 
@@ -115,10 +115,12 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 - Four-wheeled robot model
 - URDF-based robot description
 - RViz2 visualization
-- Gazebo simulation
+- Gazebo Fortress simulation with a custom obstacle world
+- ROS 2 ↔ Gazebo topic bridge (`ros_gz_bridge`)
 - TF2 coordinate frame management
 - Basic odometry implementation
-- LiDAR sensor integration
+- LiDAR sensor integration (`gpu_lidar`)
+- LiDAR-based obstacle avoidance node
 
 ### UGV Simulation
 
@@ -138,7 +140,8 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 | TF2 | Manages coordinate frames and transformations. |
 | Odometry | Estimates the robot's movement. |
 | LiDAR | Provides distance measurements of the surroundings. |
-| Gazebo | Provides the simulation environment. |
+| Gazebo Fortress | Provides the physics simulation, diff-drive and LiDAR sensor. |
+| ros_gz_bridge | Bridges `/cmd_vel`, `/odom`, `/tf`, `/scan`, `/joint_states` and `/clock` between ROS 2 and Gazebo. |
 | RViz2 | Visualizes the robot model and sensor data. |
 
 ### TF2 & Coordinate Frames
@@ -179,7 +182,8 @@ LiDAR integration is part of the ongoing work toward environmental perception an
 | ROS 2 Humble | Robot communication and software architecture |
 | Python | ROS 2 node development |
 | URDF | Robot modeling |
-| Gazebo Classic 11 | Robot simulation |
+| Gazebo Fortress | Robot simulation |
+| ros_gz | ROS 2 ↔ Gazebo integration |
 | RViz2 | Robot visualization |
 | TF2 | Coordinate transformations |
 | Ubuntu 22.04 | Development environment |
@@ -193,8 +197,16 @@ LiDAR integration is part of the ongoing work toward environmental perception an
 - Ubuntu 22.04
 - ROS 2 Humble
 - Python 3
-- Gazebo Classic 11 (`sudo apt install ros-humble-gazebo-ros-pkgs`)
+- Gazebo Fortress + ros_gz
 - RViz2
+
+Install the simulation dependencies:
+
+```bash
+sudo apt install ros-humble-ros-gz ros-humble-robot-state-publisher ros-humble-teleop-twist-keyboard
+```
+
+`ros-humble-ros-gz` installs Gazebo Fortress, which is the officially paired Gazebo version for ROS 2 Humble.
 
 ### Clone the Repository
 
@@ -246,7 +258,35 @@ colcon build
 source install/setup.bash
 ```
 
-For robot visualization and simulation instructions, refer to the UGV project documentation.
+### Run the UGV in Gazebo Fortress
+
+Start Gazebo, spawn the robot and bridge the topics with a single command:
+
+```bash
+ros2 launch ugv_description gazebo.launch.py
+```
+
+Add RViz2 as well:
+
+```bash
+ros2 launch ugv_description gazebo.launch.py rviz:=true
+```
+
+Drive the robot with the keyboard (in a new terminal):
+
+```bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
+
+Or let the LiDAR obstacle avoidance node drive it:
+
+```bash
+ros2 run ugv_control avoid_node
+```
+
+> **Note:** In Gazebo the diff-drive system already publishes `/odom` and the `odom → base_link` TF. The hand-written `ugv_odometry/odom_node` is a learning exercise from M2; do not run it together with the simulation, otherwise two nodes publish the same TF.
+
+For more details, refer to the UGV project documentation.
 
 ---
 
