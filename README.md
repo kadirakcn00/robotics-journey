@@ -480,7 +480,7 @@ This repository is continuously evolving as I explore more advanced robotics con
 | M3 | Gazebo Simulation, LiDAR, SLAM & Mapping | Completed |
 | M4 | Navigation2 (Nav2) | Completed |
 | M5 | Camera & Object Detection | Completed |
-| M6 | TEKNOFEST 2026 UGV Course Simulation | In Progress |
+| M6 | TEKNOFEST 2026 UGV Course Simulation | Completed |
 
 ---
 
