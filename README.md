@@ -488,6 +488,14 @@ ros2 launch ugv_bringup course.launch.py mission:=true
 ros2 launch ugv_bringup course.launch.py mission:=true start:=accel
 ```
 
+<p align="center">
+  <img src="./ugv-project/images/autonomy_gazebo.png" width="95%" alt="Autonomous run in Gazebo" />
+</p>
+
+<p align="center">
+  <i>First autonomous run in Gazebo: the referee (top) has scored stages 1–3, the mission (bottom) is approaching the vertical obstacle on its own pose estimate, matching 164 LiDAR points to the barrier map.</i>
+</p>
+
 - **Localization:** dead reckoning from odometry speed and IMU heading, corrected by matching LiDAR points to the known barrier map (weighted least squares), and re-synchronised on the pool entry and on the ramps, which the IMU pitch detects.
 - **Cones:** the cone positions are not known in advance; LiDAR points on the road are remembered and the robot shifts sideways to the free gap that clears the cones next to it and ahead of it.
 - **Sliding obstacle:** the LiDAR tracks the panel and the robot passes only when it is moving out of the road.
