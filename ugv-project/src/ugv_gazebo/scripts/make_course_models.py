@@ -107,6 +107,13 @@ def sign_sdf(name, number):
           </metal></pbr>
         </material>
       </visual>
+      <!-- Arka kapak: gercek tabelanin arkasi bos. Kutu dokusu arka yuze de basildigi icin
+           arka yuzu duz gri bir kapakla ortuyoruz (yoksa robot tabelalari arkadan da okur). -->
+      <visual name="board_back">
+        <pose>0.004 0 {zc:.4f} 0 0 0</pose>
+        <geometry><box><size>0.004 {board + 0.004:.4f} {board + 0.004:.4f}</size></box></geometry>
+        <material><ambient>0.45 0.45 0.45 1</ambient><diffuse>0.45 0.45 0.45 1</diffuse></material>
+      </visual>
     </link>
   </model>
 </sdf>

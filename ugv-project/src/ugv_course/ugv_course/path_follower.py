@@ -18,7 +18,7 @@ class Waypoint:
     y: float
     speed: float
     stage: int
-    wait: str = ''              # '', 'stop:<saniye>', 'slider', 'finish'
+    wait: str = ''              # '', 'stop:<saniye>', 'slider', 'finish', 'mark:<ad>'
 
 
 def parse_waypoints(lines):
@@ -37,18 +37,20 @@ class FollowerStatus:
     index: int = 0
     message: str = ''
     stage_times: dict = field(default_factory=dict)
+    marks: dict = field(default_factory=dict)      # olcum noktalari: ad -> (zaman, x, y)
 
 
 class PathFollower:
 
     def __init__(self, waypoints, lookahead=0.35, w_max=1.2, reach=0.12,
-                 stuck_time=6.0, stuck_speed=0.02):
+                 stuck_time=6.0, stuck_speed=0.02, brake=0.8):
         self.wp = waypoints
         self.lookahead = lookahead
         self.w_max = w_max
         self.reach = reach
         self.stuck_time = stuck_time
         self.stuck_speed = stuck_speed
+        self.brake = brake               # durma noktasina yaklasirken v <= brake * mesafe
         self.i = 1                       # hedeflenen nokta
         self.st = FollowerStatus()
         self.wait_until = None
@@ -56,9 +58,13 @@ class PathFollower:
         self.slider_prev = None
 
     # -- yardimcilar
+    def _is_stop(self, wp):
+        """Robotun durmasi gereken nokta mi? 'mark:' noktalari sadece zaman kaydeder."""
+        return bool(wp.wait) and not wp.wait.startswith('mark:')
+
     def _next_wait(self):
         for k in range(self.i, len(self.wp)):
-            if self.wp[k].wait:
+            if self._is_stop(self.wp[k]):
                 return k
         return len(self.wp) - 1
 
@@ -80,16 +86,20 @@ class PathFollower:
         if st.state in ('FINISHED', 'STUCK'):
             return 0.0, 0.0
 
-        # Gecilen noktalari atla (bekleme noktalarinda durulmadan atlanmaz)
-        while self.i < len(self.wp) - 1 and not self.wp[self.i].wait and \
+        # Gecilen noktalari atla (bekleme noktalarinda durulmadan atlanmaz). Olcum noktasi
+        # (mark) gecilirken zaman ve konum kaydedilir.
+        while self.i < len(self.wp) - 1 and not self._is_stop(self.wp[self.i]) and \
                 math.hypot(self.wp[self.i].x - x, self.wp[self.i].y - y) < self.reach + 0.1:
+            wp = self.wp[self.i]
+            if wp.wait.startswith('mark:'):
+                st.marks.setdefault(wp.wait[5:], (t, x, y))
             self.i += 1
         target = self.wp[self.i]
         self._enter_stage(target.stage, t)
         st.index = self.i
 
         # Bekleme noktasina varildi mi?
-        if target.wait and math.hypot(target.x - x, target.y - y) < self.reach:
+        if self._is_stop(target) and math.hypot(target.x - x, target.y - y) < self.reach:
             return self._handle_wait(target, t, speed, slider_y)
 
         # Pure Pursuit
@@ -103,8 +113,8 @@ class PathFollower:
         v = target.speed
         wait_wp = self.wp[limit]
         d_wait = math.hypot(wait_wp.x - x, wait_wp.y - y)
-        if wait_wp.wait:
-            v = min(v, max(0.05, 0.8 * d_wait))         # bekleme noktasina yavasla
+        if self._is_stop(wait_wp):
+            v = min(v, max(0.05, self.brake * d_wait))  # bekleme noktasina yavasla
         if abs(alpha) > math.radians(60):              # hedef arkada: yerinde don
             v, w = 0.0, math.copysign(0.6, alpha)
         else:

@@ -22,6 +22,7 @@ FOOT = (0.35, -0.30, 0.21)        # robot ayak izi: on, arka, yari genislik (m)
 WHEELS = (0.28, -0.28, 0.19)      # zemin seviyesinde sadece tekerlekler var
 CONE_R = 0.045                    # koni govdesi (carpisma silindiri)
 CONE_PLATE = 0.08                 # koninin 16 x 16 cm taban plakasinin yarisi
+BAR_T = 0.04                      # bariyer kalinligi
 
 
 def corners(x, y, yaw, foot=FOOT):
@@ -48,6 +49,11 @@ def inside_road(px, py):
             if course.TURN_R - half <= r <= course.TURN_R + half:
                 return True
     return False
+
+
+def inside_accel_track(px, py):
+    end = course.ACCEL_LEN + course.STOP_LEN
+    return course.ACCEL_TRACK_START <= px <= end and abs(py - course.ROW_D) <= course.HALF
 
 
 def cone_positions():
@@ -88,17 +94,21 @@ def foot_hits_slider(x, y, yaw, slider_y):
     return False
 
 
-def load_path(skip_slider_wait=False):
+def load_params():
     path = os.path.join(HERE, '..', 'config', 'course_path.yaml')
-    lines = yaml.safe_load(open(path))['course_tester']['ros__parameters']['waypoints']
+    return yaml.safe_load(open(path))['course_tester']['ros__parameters']
+
+
+def load_path(skip_slider_wait=False):
+    lines = load_params()['waypoints']
     if skip_slider_wait:
         lines = [line.replace(', slider', ', ') for line in lines]
     return parse_waypoints(lines)
 
 
-def simulate(wps, slider_phase=0.0):
-    f = PathFollower(wps)
-    x, y, yaw = 7.5, 0.0, math.pi
+def simulate(wps, slider_phase=0.0, start=(7.5, 0.0, math.pi), brake=0.8):
+    f = PathFollower(wps, brake=brake)
+    x, y, yaw = start
     v = w = 0.0
     dt, t = 0.05, 0.0
     log = {'off_road': [], 'cone': [], 'slider': [], 'stops': {}}
@@ -114,7 +124,7 @@ def simulate(wps, slider_phase=0.0):
         yaw += w * dt
         t += dt
         for px, py in corners(x, y, yaw):
-            if not inside_road(px, py):
+            if not inside_road(px, py) and not inside_accel_track(px, py):
                 log['off_road'].append((round(t, 1), round(px, 2), round(py, 2)))
         for cx, cy in cone_positions():
             if hits_cone(x, y, yaw, cx, cy):
@@ -129,6 +139,8 @@ def simulate(wps, slider_phase=0.0):
         if f.st.state in ('FINISHED', 'STUCK'):
             break
     log['state'] = f.st.state
+    log['marks'] = f.st.marks
+    log['pos'] = (x, y)
     log['time'] = t
     log['stage_times'] = f.st.stage_times
     return log
@@ -177,7 +189,8 @@ def test_waits_at_stop_lines(run_result):
 def test_passes_all_stages_in_order(run_result):
     times = run_result['stage_times']
     order = [k for k in sorted(times, key=lambda k: times[k]) if k != 'finish']
-    assert order == sorted(order) and set(range(1, 12)) <= set(order)
+    assert order == sorted(order) and set(range(1, 11)) <= set(order)
+    assert 11 not in order                    # bitis cizgisi 11. asama (hizlanma) degildir
 
 
 def test_stuck_detection():
@@ -186,3 +199,46 @@ def test_stuck_detection():
     for k in range(100):                                       # komut var, robot kipirdamiyor
         f.update(0.0, 0.0, 0.0, k * 0.05, 0.0)
     assert f.st.state == 'STUCK' and 'asama 1' in f.st.message
+
+
+@pytest.fixture(scope='module')
+def accel_result():
+    p = load_params()
+    wps = parse_waypoints(p['accel_waypoints'])
+    return simulate(wps, start=(course.ACCEL_SPAWN_X, course.ROW_D, 0.0), brake=0.7), p
+
+
+def test_accel_spawn_clear_of_barrier_and_behind_line():
+    # Robotun arkasi bariyerden, onu baslangic cizgisinden (x = 0) geride olmali
+    assert course.ACCEL_SPAWN_X + FOOT[1] > course.ACCEL_TRACK_START + BAR_T
+    assert course.ACCEL_SPAWN_X + FOOT[0] < 0.0
+
+
+def test_accel_run_crosses_line_and_stops_in_zone(accel_result):
+    log, p = accel_result
+    assert log['state'] == 'FINISHED'
+    assert 'accel_line' in log['marks']
+    t_line = log['marks']['accel_line'][0]
+    stop = log['pos'][0] - p['accel_line']
+    assert 0 < stop <= p['accel_stop_zone']                  # durma alani icinde
+    assert p['accel_line'] / t_line > 0.8                   # tam hiza yakin (hedef 1.0 m/s)
+
+
+def test_accel_run_stays_on_track(accel_result):
+    log, _ = accel_result
+    assert log['off_road'] == []
+
+
+def test_mark_does_not_stop_robot():
+    wps = parse_waypoints(['0, 0, 0.5, 11, ', '2, 0, 0.5, 11, mark:line', '4, 0, 0.5, 11, finish'])
+    f = PathFollower(wps)
+    x, v, t = 0.0, 0.0, 0.0
+    speeds = []
+    while f.st.state != 'FINISHED' and t < 30:
+        vc, _ = f.update(x, 0.0, 0.0, t, v)
+        v += max(-0.05, min(0.05, vc - v))
+        x += v * 0.05
+        t += 0.05
+        if 1.8 < x < 2.2:
+            speeds.append(v)
+    assert 'line' in f.st.marks and min(speeds) > 0.4          # cizgide yavaslamadi

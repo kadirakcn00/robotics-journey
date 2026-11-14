@@ -9,6 +9,7 @@ Manuel kosu (surucu konsolu: kameralar + klavye + taret + lazer):
 
 Parkur fizik testi (robot parkuru kendisi surer, takildigi asamayi raporlar):
     ros2 launch ugv_bringup course.launch.py tester:=true
+    ros2 launch ugv_bringup course.launch.py tester:=true start:=accel   # hizlanma kosusu
 
 Hiz komutu su fizigi node'undan gecer: /cmd_vel -> water_physics -> /cmd_vel_gz -> Gazebo
 """
@@ -27,7 +28,7 @@ from launch_ros.actions import Node
 # Baslangic noktalari: (x, y, yaw)
 STARTS = {
     'main': (7.5, 0.0, 3.14159265),    # ana parkur, A sirasi, -x yonune bakar
-    'accel': (-0.3, 9.5, 0.0),         # hizlanma parkuru, +x yonune bakar
+    'accel': (-0.4, 9.5, 0.0),         # hizlanma parkuru, +x yonune bakar (onu cizginin gerisinde)
 }
 
 
@@ -110,7 +111,7 @@ def launch_setup(context):
         name='course_tester',
         output='screen',
         parameters=[os.path.join(course_share, 'config', 'course_path.yaml'),
-                    {'use_sim_time': True}],
+                    {'use_sim_time': True, 'run': start}],
         condition=IfCondition(LaunchConfiguration('tester')),
     )
 
