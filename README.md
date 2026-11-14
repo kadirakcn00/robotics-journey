@@ -451,6 +451,12 @@ Check that the robot can physically complete the course: the course tester drive
 ros2 launch ugv_bringup course.launch.py tester:=true
 ```
 
+The acceleration track (stage 11) is a separate run: the tester accelerates from standstill, reports the time over the 12 m line (30 m in the specification) and checks that the robot stops within the 4 m stopping zone:
+
+```bash
+ros2 launch ugv_bringup course.launch.py tester:=true start:=accel
+```
+
 The tester is not the autonomous run (it knows the true robot pose and the obstacle position); it validates the course and the robot's physics.
 
 Start on the acceleration track instead:

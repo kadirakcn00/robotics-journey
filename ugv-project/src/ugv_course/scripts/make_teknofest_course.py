@@ -65,6 +65,8 @@ FINISH_X = 1.2
 ROW_C_END = 0.4
 TARGET_POS = (-2.6, ROW_C)
 ACCEL_LEN, STOP_LEN = 30.0 * S, 10.0 * S
+ACCEL_TRACK_START = -1.0      # hizlanma parkurunun arka bariyeri
+ACCEL_SPAWN_X = -0.4          # robotun onu baslangic cizgisinin (x = 0) gerisinde
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PKG = os.path.normpath(os.path.join(HERE, '..'))
@@ -301,7 +303,7 @@ def build():
     course.road_line(ROW_C_END, ROW_LEN, ROW_C)
     course.road_arc((0.0, (ROW_A + ROW_B) / 2), -math.pi / 2, -3 * math.pi / 2)
     course.road_arc((ROW_LEN, (ROW_B + ROW_C) / 2), -math.pi / 2, math.pi / 2)
-    course.road_line(-0.5, ACCEL_LEN + STOP_LEN, ROW_D)
+    course.road_line(ACCEL_TRACK_START, ACCEL_LEN + STOP_LEN, ROW_D)
 
     # ---------------------------------------------------------------- bariyerler
     def straight_barriers(y, x0, x1, gaps=(), z_upper=None):
@@ -324,8 +326,8 @@ def build():
     cr = (ROW_LEN, (ROW_B + ROW_C) / 2)
     course.barrier_arc(cr, TURN_R - BAR_Y, -math.pi / 2, math.pi / 2)
     course.barrier_arc(cr, TURN_R + BAR_Y, -math.pi / 2, math.pi / 2)
-    straight_barriers(ROW_D, -0.5, ACCEL_LEN + STOP_LEN)
-    course.barrier_line((-0.5, ROW_D - BAR_Y), (-0.5, ROW_D + BAR_Y))
+    straight_barriers(ROW_D, ACCEL_TRACK_START, ACCEL_LEN + STOP_LEN)
+    course.barrier_line((ACCEL_TRACK_START, ROW_D - BAR_Y), (ACCEL_TRACK_START, ROW_D + BAR_Y))
     course.barrier_line((ACCEL_LEN + STOP_LEN, ROW_D - BAR_Y),
                         (ACCEL_LEN + STOP_LEN, ROW_D + BAR_Y))
 
@@ -592,7 +594,8 @@ def write_world(course, terrain, includes):
 <!--
   TEKNOFEST 2026 Insansiz Kara Araci yarisma parkuru (Sekil 1), olcek x {S}.
   Bu dosya ugv_course/scripts/make_teknofest_course.py ile uretilir; elle duzenlemeyin.
-  Robot baslangici: (7.5, 0) -x yonune bakar. Hizlanma parkuru: (-0.3, {ROW_D}) +x yonune bakar.
+  Robot baslangici: (7.5, 0) -x yonune bakar.
+  Hizlanma parkuru: ({ACCEL_SPAWN_X}, {ROW_D}) +x yonune bakar.
 -->
 <sdf version="1.8">
   <world name="teknofest_course">
@@ -744,7 +747,24 @@ def course_path():
     add(rc + 0.1, ROW_C, 0.12, 10)
     add((rc + rd) / 2, ROW_C, 0.12, 10, 'stop:2.5')              # inis stop cizgisi
     add(rd - 0.3, ROW_C, 0.2, 10)
-    add(FINISH_X - 0.1, ROW_C, 0.2, 11, 'finish')
+    add(FINISH_X - 0.1, ROW_C, 0.2, 10, 'finish')                # bitis cizgisi (asama degil)
+    return pts
+
+
+ACCEL_SPEED = 1.0             # hizlanma kosusunda hedef hiz (m/s)
+ACCEL_STOP_AT = ACCEL_LEN + 1.5   # cizgiden sonra durulacak nokta (4 m durma alani icinde)
+
+
+def accel_path():
+    """Hizlanma kosusu (asama 11): sifirdan tam hizla 12 m (sartname 30 m), cizgiden sonra dur.
+
+    'mark:accel_line' noktasi robotu durdurmaz; gecis zamani kaydedilir (yaris suresi).
+    """
+    pts = []
+    for x in (ACCEL_SPAWN_X, 0.0, 3.0, 6.0, 9.0):
+        pts.append((round(x, 3), ROW_D, ACCEL_SPEED, 11, ''))
+    pts.append((round(ACCEL_LEN, 3), ROW_D, ACCEL_SPEED, 11, 'mark:accel_line'))
+    pts.append((round(ACCEL_STOP_AT, 3), ROW_D, ACCEL_SPEED, 11, 'finish'))
     return pts
 
 
@@ -755,6 +775,14 @@ def write_path_yaml():
                 '# x, y, hiz (m/s), asama, bekleme (stop:<s> | slider | finish)\n'
                 'course_tester:\n  ros__parameters:\n    waypoints: [\n')
         for x, y, v, stage, wait in course_path():
+            f.write(f'      "{x}, {y}, {v}, {stage}, {wait}",\n')
+        f.write('    ]\n'
+                f'    # Hizlanma kosusu (start:=accel): cizgi x = {ACCEL_LEN}, durma alani '
+                f'{ACCEL_LEN}..{ACCEL_LEN + STOP_LEN}\n'
+                f'    accel_line: {ACCEL_LEN}\n'
+                f'    accel_stop_zone: {STOP_LEN}\n'
+                '    accel_waypoints: [\n')
+        for x, y, v, stage, wait in accel_path():
             f.write(f'      "{x}, {y}, {v}, {stage}, {wait}",\n')
         f.write('    ]\n')
     return path

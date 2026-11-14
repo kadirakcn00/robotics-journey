@@ -6,7 +6,8 @@ robot havuzdan cikabiliyor mu, dik engele ve %45 rampaya tirmanabiliyor mu, yan 
 devriliyor mu? Takilirsa hangi asamada takildigini raporlar.
 
 Calistirma:
-    ros2 launch ugv_bringup course.launch.py tester:=true
+    ros2 launch ugv_bringup course.launch.py tester:=true                # ana parkur
+    ros2 launch ugv_bringup course.launch.py tester:=true start:=accel   # hizlanma parkuru
 
 Yayinlar:
     /cmd_vel (geometry_msgs/Twist)           : hiz komutu (su fizigi node'undan gecer)
@@ -27,7 +28,7 @@ from ugv_course.water import yaw_from_quaternion
 STAGE_NAMES = {
     0: 'baslangic', 1: 'su gecisi', 2: 'cakilli yol', 3: 'yan egim', 4: 'dik engel',
     5: 'koniler', 6: 'kayar engel', 7: 'engebeli arazi', 8: 'dik egim (cikis)',
-    9: 'atis bolgesi', 10: 'dik egim (inis)', 11: 'bitis',
+    9: 'atis bolgesi', 10: 'dik egim (inis)', 11: 'hizlanma parkuru',
 }
 
 
@@ -36,10 +37,18 @@ class CourseTesterNode(Node):
     def __init__(self):
         super().__init__('course_tester')
         self.declare_parameter('waypoints', [''])
+        self.declare_parameter('accel_waypoints', [''])
+        self.declare_parameter('accel_line', 12.0)
+        self.declare_parameter('accel_stop_zone', 4.0)
+        self.declare_parameter('run', 'main')           # main: ana parkur, accel: hizlanma
         self.declare_parameter('rate', 20.0)
         self.declare_parameter('start_delay', 5.0)
-        lines = [w for w in self.get_parameter('waypoints').value if w.strip()]
-        self.follower = PathFollower(parse_waypoints(lines))
+        self.run = self.get_parameter('run').value
+        key = 'accel_waypoints' if self.run == 'accel' else 'waypoints'
+        lines = [w for w in self.get_parameter(key).value if w.strip()]
+        # Hizlanmada tam hizla gidilir; fren cizgiden sonra baslar
+        self.follower = PathFollower(parse_waypoints(lines),
+                                     brake=0.7 if self.run == 'accel' else 0.8)
         self.pose = None
         self.prev = None
         self.speed = 0.0
@@ -53,7 +62,8 @@ class CourseTesterNode(Node):
         self.pub = self.create_publisher(Twist, '/cmd_vel', 10)
         self.pub_status = self.create_publisher(String, '/course/tester_status', 10)
         self.create_timer(1.0 / self.get_parameter('rate').value, self.on_timer)
-        self.get_logger().info(f'{len(lines)} noktalik yol yuklendi, gercek konum bekleniyor')
+        self.get_logger().info(f'Kosu: {self.run} | {len(lines)} noktalik yol yuklendi, '
+                               f'gercek konum bekleniyor')
 
     def on_pose(self, msg):
         p = msg.pose.pose
@@ -104,9 +114,28 @@ class CourseTesterNode(Node):
         else:
             log.error(f'{st.message} | konum ({x:.2f}, {y:.2f}) | '
                       f'{STAGE_NAMES.get(st.stage, "?")} asamasinda ilerleyemedi')
+        if self.run == 'accel':
+            self.report_accel(t, x)
+            return
         times = sorted((v, k) for k, v in st.stage_times.items() if k != 'finish')
         for (t0, k), nxt in zip(times, times[1:] + [(st.stage_times.get('finish', t), None)]):
             log.info(f'   asama {k:2d} {STAGE_NAMES.get(k, "?"):18s} {nxt[0] - t0:6.1f} s')
+
+    def report_accel(self, t, x):
+        """Hizlanma: cizgiyi gecme suresi ve cizgiden sonraki durma mesafesi."""
+        log = self.get_logger()
+        line = self.get_parameter('accel_line').value
+        zone = self.get_parameter('accel_stop_zone').value
+        mark = self.follower.st.marks.get('accel_line')
+        if mark is None:
+            log.error('Hizlanma cizgisi gecilemedi')
+            return
+        t_line = mark[0]
+        stop = x - line
+        log.info(f'   {line:.1f} m (sartname 30 m) suresi : {t_line:.2f} s '
+                 f'(ortalama {line / t_line:.2f} m/s)')
+        verdict = 'GUVENLI' if stop <= zone else 'DURMA ALANI ASILDI (ceza)'
+        log.info(f'   cizgiden sonra durma mesafesi : {stop:.2f} m / {zone:.1f} m -> {verdict}')
 
 
 def main(args=None):
