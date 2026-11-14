@@ -57,6 +57,10 @@ class CourseTesterNode(Node):
         self.last_stage = None
         self.last_state = None
         self.reported = False
+        self.aborted = False
+        self.last_clock = None
+        first = parse_waypoints(lines[:1])[0] if lines else None
+        self.expected_start = (first.x, first.y) if first else None
         self.create_subscription(Odometry, '/ground_truth/odom', self.on_pose, 10)
         self.create_subscription(Float64, '/course/slider_cmd', self.on_slider, 10)
         self.pub = self.create_publisher(Twist, '/cmd_vel', 10)
@@ -76,7 +80,27 @@ class CourseTesterNode(Node):
         now = self.get_clock().now().nanoseconds * 1e-9
         if self.pose is None:
             return
+        if self.aborted:
+            return
+        if self.last_clock is not None and now < self.last_clock - 0.5:
+            if self.start is None or self.last_clock < self.start:     # kosu henuz baslamadi
+                # Gazebo acilirken saat bir kez sifirlanabilir: geri sayimi bastan baslat
+                self.get_logger().warn('Simulasyon saati sifirlandi, test geri sayimi yeniden')
+                self.start = None
+                self.prev = None
+            else:
+                self.abort(f'Simulasyon saati kosu sirasinda geriye atladi '
+                           f'({self.last_clock:.1f} -> {now:.1f} s)')
+                return
+        self.last_clock = now
         if self.start is None:
+            if self.expected_start is not None:
+                dist = math.hypot(self.pose[0] - self.expected_start[0],
+                                  self.pose[1] - self.expected_start[1])
+                if dist > 1.0:
+                    self.abort(f'Robot beklenen baslangicta degil: ({self.pose[0]:.2f}, '
+                               f'{self.pose[1]:.2f}), beklenen {self.expected_start}')
+                    return
             self.start = now + self.get_parameter('start_delay').value
             self.get_logger().info('Gercek konum geldi, test birazdan basliyor')
         if now < self.start:
@@ -104,6 +128,15 @@ class CourseTesterNode(Node):
         self.pub_status.publish(String(data=f'{st.state} | {st.message} | {t:.1f} s'))
         if st.state in ('FINISHED', 'STUCK') and not self.reported:
             self.report(t, x, y)
+
+    def abort(self, reason):
+        """Test anlamsizlasti: robotu durdur, sebebi ve olasi cozumu yaz."""
+        self.aborted = True
+        self.pub.publish(Twist())
+        log = self.get_logger()
+        log.error(f'TEST DURDURULDU: {reason}')
+        log.error('Arkada baska bir Gazebo acik olabilir (iki simulasyon ayni topic\'lere '
+                  'yaziyor). Hepsini kapatip tekrar dene:  pkill -f "ign gazebo"')
 
     def report(self, t, x, y):
         st = self.follower.st
@@ -145,7 +178,11 @@ def main(args=None):
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
-    node.pub.publish(Twist())
+    try:
+        if rclpy.ok():
+            node.pub.publish(Twist())       # kapanirken robotu durdur
+    except Exception:
+        pass                                # Ctrl+C sonrasi ROS baglami kapanmis olabilir
     node.destroy_node()
     rclpy.try_shutdown()
 

@@ -457,6 +457,12 @@ The acceleration track (stage 11) is a separate run: the tester accelerates from
 ros2 launch ugv_bringup course.launch.py tester:=true start:=accel
 ```
 
+If the tester stops with "TEST DURDURULDU" (the robot is not at the expected start, or the simulation clock jumps back), an old Gazebo server from a previous run is most likely still running and both simulations publish on the same topics. Close them all and start again:
+
+```bash
+pkill -f "ign gazebo"
+```
+
 The tester is not the autonomous run (it knows the true robot pose and the obstacle position); it validates the course and the robot's physics.
 
 Start on the acceleration track instead:

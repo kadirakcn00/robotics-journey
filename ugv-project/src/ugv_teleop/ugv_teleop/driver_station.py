@@ -245,7 +245,11 @@ def main(args=None):
     win.resize(1220, 820)
     win.show()
     code = app.exec_()
-    node.pub_cmd.publish(Twist())     # kapanirken robotu durdur
+    try:
+        if rclpy.ok():
+            node.pub_cmd.publish(Twist())     # kapanirken robotu durdur
+    except Exception:
+        pass                                  # Ctrl+C sonrasi ROS baglami kapanmis olabilir
     node.destroy_node()
     rclpy.try_shutdown()
     sys.exit(code)
