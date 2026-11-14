@@ -615,6 +615,9 @@ def write_world(course, terrain, includes):
             name="ignition::gazebo::systems::Sensors">
       <render_engine>ogre2</render_engine>
     </plugin>
+    <!-- IMU sensoru icin (robotun egimini ve yonunu olcer) -->
+    <plugin filename="ignition-gazebo-imu-system"
+            name="ignition::gazebo::systems::Imu"/>
     <!-- Yagmur icin parcacik sistemi -->
     <plugin filename="ignition-gazebo-particle-emitter2-system"
             name="ignition::gazebo::systems::ParticleEmitter2"/>
@@ -788,6 +791,63 @@ def write_path_yaml():
     return path
 
 
+# Taret olculeri (ugv_description: base_z 0.20 + govde yarisi 0.10 = 0.30, direk 0.10, tilt +0.04)
+TURRET = {'pan_xyz': [-0.15, 0.0, 0.40], 'tilt_dz': 0.04,
+          'camera': [0.04, 0.0, 0.008], 'laser': [0.03, 0.0, -0.012],
+          'camera_hfov': 0.25, 'image_w': 640, 'image_h': 480}
+
+
+def write_layout(course):
+    """Hakem ve otonom kod icin parkur geometrisi (config/course_layout.yaml)."""
+    import yaml
+    _, (ra, rb, rc, rd) = ramp_profile()
+    tw, th = 0.36 * S, 0.24 * S                     # hedef kagidi (Sekil 5)
+    barriers = [[round(c, 4) for c in (*p0, *p1)] for kind, p0, p1 in
+                (it for it in course.preview if it[0] == 'barrier')]
+    stages = [  # (id, ad, sira y, x0, x1): robot bu araliktan cikinca asama gecilmis sayilir
+        [1, 'su gecisi', ROW_A, POOL_X[0], POOL_X[1]],
+        [2, 'cakilli yol', ROW_A, GRAVEL_X[0], GRAVEL_X[1]],
+        [3, 'yan egim', ROW_A, SIDE_X[0], SIDE_X[1]],
+        [4, 'dik engel', ROW_B, STEP_X[0], STEP_X[1]],
+        [5, 'koniler', ROW_B, CONE_XS[0] - 0.3, CONE_XS[-1] + 0.3],
+        [6, 'kayar engel', ROW_B, SLIDER_X - 0.3, SLIDER_X + 0.3],
+        [7, 'engebeli arazi', ROW_C, BUMPS_X[0], BUMPS_X[1]],
+        [8, 'dik egim (cikis)', ROW_C, rb, ra],
+        [9, 'atis bolgesi', ROW_C, rc, rb],
+        [10, 'dik egim (inis)', ROW_C, rd, rc],
+    ]
+    layout = {
+        'scale': S,
+        'road': {'half': HALF, 'barrier_y': BAR_Y, 'row_len': ROW_LEN, 'turn_r': TURN_R,
+                 'rows': {'A': [ROW_A, 0.0, ROW_LEN, -1], 'B': [ROW_B, 0.0, ROW_LEN, 1],
+                          'C': [ROW_C, ROW_C_END, ROW_LEN, -1]},
+                 'turns': [[0.0, (ROW_A + ROW_B) / 2, -1], [ROW_LEN, (ROW_B + ROW_C) / 2, 1]]},
+        'start': [7.5, ROW_A, math.pi],
+        'finish_x': FINISH_X,
+        'stages': stages,
+        'cones': [[x, ROW_B + (CONE_Y if i % 2 == 0 else -CONE_Y)] for i, x in enumerate(CONE_XS)],
+        'cone': {'body_r': 0.045, 'plate_half': 0.08, 'r_at_lidar': 0.035},
+        'slider': {'x': SLIDER_X, 'row_y': ROW_B, 'width': SLIDER_W, 'thick': 0.08,
+                   'amp': SLIDER_AMP, 'speed': SLIDER_SPEED},
+        'pool': {'x0': POOL_X[0], 'x1': POOL_X[1], 'depth': POOL_DEPTH, 'ramp': POOL_RAMP},
+        'ramps': {'ra': ra, 'rb': rb, 'rc': rc, 'rd': rd, 'h': RAMP_H,
+                  'stop_up': (ra + rb) / 2, 'stop_down': (rc + rd) / 2},
+        'target': {'x': TARGET_POS[0], 'y': TARGET_POS[1], 'z': 0.30 + th / 2,
+                   'rings': [0.06 * S / 2, 0.12 * S / 2, 0.18 * S / 2], 'points': [50, 25, 15],
+                   'width': tw, 'height': th},
+        'accel': {'row_y': ROW_D, 'x0': ACCEL_TRACK_START, 'line': ACCEL_LEN,
+                  'stop_zone': STOP_LEN, 'spawn_x': ACCEL_SPAWN_X},
+        'turret': TURRET,
+        'barriers': barriers,
+    }
+    path = os.path.join(PKG, 'config', 'course_layout.yaml')
+    with open(path, 'w') as f:
+        f.write('# make_teknofest_course.py tarafindan uretildi: parkur geometrisi '
+                '(hakem + otonom)\n')
+        yaml.safe_dump(layout, f, default_flow_style=None, sort_keys=False, width=100)
+    return path
+
+
 def write_preview(course, signs):
     from PIL import Image, ImageDraw, ImageFont
     ppm = 40
@@ -873,6 +933,7 @@ def main():
     print('dunya   :', write_world(course, terrain, includes))
     print('su      :', write_water_yaml())
     print('yol     :', write_path_yaml())
+    print('duzen   :', write_layout(course))
     print('gorunus :', write_preview(course, signs))
     print(f'parca sayisi: {course.n} (+{len(includes)} model)')
 

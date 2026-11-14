@@ -18,7 +18,7 @@ class Waypoint:
     y: float
     speed: float
     stage: int
-    wait: str = ''              # '', 'stop:<saniye>', 'slider', 'finish', 'mark:<ad>'
+    wait: str = ''              # '', 'stop:<s>', 'slider', 'finish', 'mark:<ad>', 'shoot'
 
 
 def parse_waypoints(lines):
@@ -43,7 +43,7 @@ class FollowerStatus:
 class PathFollower:
 
     def __init__(self, waypoints, lookahead=0.35, w_max=1.2, reach=0.12,
-                 stuck_time=6.0, stuck_speed=0.02, brake=0.8):
+                 stuck_time=6.0, stuck_speed=0.02, brake=0.8, slider_clear=None):
         self.wp = waypoints
         self.lookahead = lookahead
         self.w_max = w_max
@@ -51,6 +51,10 @@ class PathFollower:
         self.stuck_time = stuck_time
         self.stuck_speed = stuck_speed
         self.brake = brake               # durma noktasina yaklasirken v <= brake * mesafe
+        self.offset = 0.0                # yolun soluna (+) / sagina (-) kaydirma (m), koniler icin
+        self.external_done = False       # 'shoot' beklemesini disaridan bitirmek icin
+        if slider_clear is not None:     # kayar engel karari disaridan (otonom: LIDAR)
+            self.slider_clear = slider_clear
         self.i = 1                       # hedeflenen nokta
         self.st = FollowerStatus()
         self.wait_until = None
@@ -61,6 +65,25 @@ class PathFollower:
     def _is_stop(self, wp):
         """Robotun durmasi gereken nokta mi? 'mark:' noktalari sadece zaman kaydeder."""
         return bool(wp.wait) and not wp.wait.startswith('mark:')
+
+    def _passed(self, k, x, y):
+        """Nokta gecildi mi.
+
+        Yakinsa ya da robot yol yonunde noktayi gectiyse gecilmis sayilir (yana kaymis olsa
+        bile; koni kacinirken robot yolun yanindan gecer).
+        """
+        wp = self.wp[k]
+        dx, dy = x - wp.x, y - wp.y
+        if math.hypot(dx, dy) < self.reach + 0.1:
+            return True
+        if k == 0:
+            return False
+        px, py = self.wp[k - 1].x, self.wp[k - 1].y
+        seg = math.hypot(wp.x - px, wp.y - py)
+        if seg < 1e-6:
+            return False
+        along = (dx * (wp.x - px) + dy * (wp.y - py)) / seg
+        return along > 0.0 and math.hypot(dx, dy) < 0.8
 
     def _next_wait(self):
         for k in range(self.i, len(self.wp)):
@@ -89,7 +112,7 @@ class PathFollower:
         # Gecilen noktalari atla (bekleme noktalarinda durulmadan atlanmaz). Olcum noktasi
         # (mark) gecilirken zaman ve konum kaydedilir.
         while self.i < len(self.wp) - 1 and not self._is_stop(self.wp[self.i]) and \
-                math.hypot(self.wp[self.i].x - x, self.wp[self.i].y - y) < self.reach + 0.1:
+                self._passed(self.i, x, y):
             wp = self.wp[self.i]
             if wp.wait.startswith('mark:'):
                 st.marks.setdefault(wp.wait[5:], (t, x, y))
@@ -105,6 +128,13 @@ class PathFollower:
         # Pure Pursuit
         limit = self._next_wait()
         lx, ly = self._lookahead_point(x, y, limit)
+        if self.offset and self.i > 0:
+            # Yolun yonune dik (sola) kaydir
+            ax, ay = self.wp[self.i - 1].x, self.wp[self.i - 1].y
+            seg = math.hypot(target.x - ax, target.y - ay)
+            if seg > 1e-6:
+                lx -= (target.y - ay) / seg * self.offset
+                ly += (target.x - ax) / seg * self.offset
         dx, dy = lx - x, ly - y
         c, s = math.cos(yaw), math.sin(yaw)
         fx, fy = c * dx + s * dy, -s * dx + c * dy     # robot cercevesinde
@@ -143,6 +173,12 @@ class PathFollower:
             st.message = f'stop: {max(0.0, self.wait_until - t):.1f} s'
             if t < self.wait_until:
                 return 0.0, 0.0
+        elif wp.wait == 'shoot':
+            st.state = 'SHOOT'
+            if not self.external_done:
+                st.message = 'atis yapiliyor'
+                return 0.0, 0.0
+            self.external_done = False
         elif wp.wait == 'slider':
             st.state = 'SLIDER_WAIT'
             if not self.slider_clear(slider_y):
@@ -160,10 +196,12 @@ class PathFollower:
         if slider_y is None:
             return False
         prev, self.slider_prev = self.slider_prev, slider_y
+        if prev is None:
+            return False                 # yonu anlamak icin ikinci olcum gerekir
         if abs(slider_y) >= out:
             # Disarida ve geri donmuyorsa ya da donse bile uzaksa gecilir
-            return prev is None or abs(slider_y) >= abs(prev) or abs(slider_y) > 0.75
-        moving_away = prev is not None and abs(slider_y) > abs(prev)
+            return abs(slider_y) >= abs(prev) or abs(slider_y) > 0.75
+        moving_away = abs(slider_y) > abs(prev)
         return moving_away and abs(slider_y) >= moving_out
 
     def _check_stuck(self, v_cmd, speed, t):

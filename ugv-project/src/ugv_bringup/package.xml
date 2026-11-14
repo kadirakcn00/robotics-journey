@@ -15,6 +15,7 @@
   <exec_depend>ugv_perception</exec_depend>
   <exec_depend>ugv_course</exec_depend>
   <exec_depend>ugv_teleop</exec_depend>
+  <exec_depend>ugv_autonomy</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>teleop_twist_keyboard</exec_depend>
   <exec_depend>launch</exec_depend>

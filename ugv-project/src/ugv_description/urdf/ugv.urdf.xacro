@@ -108,6 +108,24 @@
        (32 cm) tarama duzleminin icinde kalir. -->
   <xacro:lidar parent="base_link" xyz="${base_length/2 + 0.05} 0 ${base_z}"/>
 
+  <!-- IMU: govdenin ortasinda. Yon (otonom kosuda konum tahmini) ve egim (rampa/havuz algilama) -->
+  <link name="imu_link">
+    <xacro:box_inertia m="0.01" x="0.02" y="0.02" z="0.01"/>
+  </link>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 ${base_z}" rpy="0 0 0"/>
+  </joint>
+  <gazebo reference="imu_link">
+    <sensor name="imu_sensor" type="imu">
+      <always_on>true</always_on>
+      <update_rate>50</update_rate>
+      <topic>/imu</topic>
+      <ignition_frame_id>imu_link</ignition_frame_id>
+    </sensor>
+  </gazebo>
+
   <!-- Surus kameralari (sartname 6.12: ileri ve geri surus kamerasi) -->
   <xacro:camera short="front" parent="base_link" hfov="1.2"
                 xyz="${base_length/2 - 0.03} 0 ${base_z + base_height/2 + 0.0125}" rpy="0 0 0"/>
