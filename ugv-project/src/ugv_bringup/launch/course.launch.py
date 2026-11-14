@@ -4,8 +4,11 @@ Calistirma:
     ros2 launch ugv_bringup course.launch.py
     ros2 launch ugv_bringup course.launch.py start:=accel     # hizlanma parkurundan basla
 
-Robotu surmek icin (yeni terminal):
-    ros2 run teleop_twist_keyboard teleop_twist_keyboard
+Manuel kosu (surucu konsolu: kameralar + klavye + taret + lazer):
+    ros2 launch ugv_bringup course.launch.py driver:=true
+
+Parkur fizik testi (robot parkuru kendisi surer, takildigi asamayi raporlar):
+    ros2 launch ugv_bringup course.launch.py tester:=true
 
 Hiz komutu su fizigi node'undan gecer: /cmd_vel -> water_physics -> /cmd_vel_gz -> Gazebo
 """
@@ -93,6 +96,24 @@ def launch_setup(context):
         condition=IfCondition(perception),
     )
 
+    driver = Node(
+        package='ugv_teleop',
+        executable='driver_station',
+        name='driver_station',
+        output='screen',
+        condition=IfCondition(LaunchConfiguration('driver')),
+    )
+
+    tester = Node(
+        package='ugv_course',
+        executable='course_tester',
+        name='course_tester',
+        output='screen',
+        parameters=[os.path.join(course_share, 'config', 'course_path.yaml'),
+                    {'use_sim_time': True}],
+        condition=IfCondition(LaunchConfiguration('tester')),
+    )
+
     rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -106,7 +127,8 @@ def launch_setup(context):
         # Parkur modelleri (koni, kayar engel, egimli zemin parcalari) icin model klasoru
         AppendEnvironmentVariable('IGN_GAZEBO_RESOURCE_PATH',
                                   os.path.join(course_share, 'models')),
-        sim, water, slider, slider_bridge, sign_detector, target_detector, rviz,
+        sim, water, slider, slider_bridge, sign_detector, target_detector, driver, tester,
+        rviz,
     ]
 
 
@@ -117,5 +139,9 @@ def generate_launch_description():
         DeclareLaunchArgument('perception', default_value='true',
                               description='Tabela okuyucu ve hedef bulucuyu calistir'),
         DeclareLaunchArgument('rviz', default_value='true'),
+        DeclareLaunchArgument('driver', default_value='false',
+                              description='true: surucu konsolunu ac (manuel kosu)'),
+        DeclareLaunchArgument('tester', default_value='false',
+                              description='true: parkur test surucusu robotu kendisi surer'),
         OpaqueFunction(function=launch_setup),
     ])

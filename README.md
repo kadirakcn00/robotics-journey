@@ -126,6 +126,8 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 - Front, rear and aiming cameras; pan-tilt aiming turret with laser pointer
 - Camera perception: TEKNOFEST stage sign reading and shooting target detection (OpenCV)
 - TEKNOFEST 2026 UGV competition course in Gazebo (all 11 stages, scaled ×0.4) with custom water physics and a moving obstacle
+- Driver station for the remote-controlled run: three camera views, hold-to-drive keyboard control with gears, turret and laser, emergency stop
+- Course tester that drives the whole course and reports the stage where the robot gets stuck
 
 ### UGV Simulation
 
@@ -163,7 +165,8 @@ ugv-project/src/
 ├── ugv_slam/          # slam_toolbox parameters + saved maps + sdf_to_map tool
 ├── ugv_navigation/    # Nav2 parameters + launch
 ├── ugv_perception/    # Stage sign + shooting target detection nodes (OpenCV)
-├── ugv_course/        # TEKNOFEST course world, water physics, sliding obstacle
+├── ugv_course/        # TEKNOFEST course world, water physics, sliding obstacle, course tester
+├── ugv_teleop/        # Driver station for the manual run (cameras, keyboard, turret, laser)
 ├── ugv_control/       # LiDAR obstacle avoidance node
 └── ugv_odometry/      # Hand-written odometry node (M2 exercise)
 ```
@@ -219,11 +222,11 @@ The competition course from the TEKNOFEST 2026 Unmanned Ground Vehicle specifica
 
 | Stage | Specification | Simulation (×0.4) |
 |---|---|---|
-| 1 Water crossing + rain | 40 cm deep | 16 cm pool with 20° entry/exit, custom water physics, rain particles |
+| 1 Water crossing + rain | 40 cm deep | 16 cm pool (blue lining) with 20° entry/exit, custom water physics, rain particles |
 | 2 Gravel road | stones up to 5 cm | 90 stones up to 2 cm |
 | 3 Side slope | 20 % | 20 % with smooth entry/exit |
 | 4 Vertical obstacle | 15 cm | 6 cm block |
-| 5 Traffic cones | 40×40 cm base, 75 cm | 16×16 cm base, 31 cm, slalom |
+| 5 Traffic cones | 40×40 cm base, 75 cm | 16×16 cm base, 31 cm, two staggered rows (placement is up to the referees) |
 | 6 Sliding obstacle | 1 m wide, 20 cm/s, leaves the road | 0.4 m wide, 8 cm/s |
 | 7 Bumpy terrain | 20×5 cm bumps | 8×2 cm bumps |
 | 8 / 10 Steep slopes | 45 % up / down with stops | 45 %, stop lines |
@@ -426,11 +429,29 @@ Start the course with water physics, the sliding obstacle, the camera detectors 
 ros2 launch ugv_bringup course.launch.py
 ```
 
-Drive through the stages (new terminal):
+Drive the manual run with the driver station (the competition's remote-controlled run: the driver only sees the cameras):
 
 ```bash
-ros2 run teleop_twist_keyboard teleop_twist_keyboard
+ros2 launch ugv_bringup course.launch.py driver:=true
 ```
+
+| Key | Action |
+|---|---|
+| W / S, A / D | Drive forward / backward, turn (hold) |
+| 1 / 2 / 3 | Gear: 0.15 / 0.30 / 0.50 m/s |
+| Arrow keys, C | Turn the turret, center it |
+| F | Laser (hold; driving and turret are locked while it is on, as the rules penalize moving) |
+| Space / Enter | Emergency stop (latched) / release |
+
+The robot stops when the driver station window loses focus, like a lost radio link.
+
+Check that the robot can physically complete the course: the course tester drives it along the course using the ground-truth pose, waits at the stop lines and for the sliding obstacle, and prints the time of each stage, or the stage where the robot got stuck:
+
+```bash
+ros2 launch ugv_bringup course.launch.py tester:=true
+```
+
+The tester is not the autonomous run (it knows the true robot pose and the obstacle position); it validates the course and the robot's physics.
 
 Start on the acceleration track instead:
 
@@ -458,11 +479,18 @@ cd ugv-project/src/ugv_perception
 python3 -m pytest test/test_detection.py
 ```
 
-Run the water physics and sliding obstacle tests:
+Run the course tests (water physics, sliding obstacle, and a full-course simulation of the tester checking road limits, cone and obstacle clearance and the stop-line waits):
 
 ```bash
 cd ugv-project/src/ugv_course
-python3 -m pytest test/test_course_logic.py
+python3 -m pytest test/
+```
+
+Run the driver station logic tests:
+
+```bash
+cd ugv-project/src/ugv_teleop
+python3 -m pytest test/test_drive_logic.py
 ```
 
 For more details, refer to the UGV project documentation.

@@ -51,6 +51,7 @@ SIDE_BLEND = 0.5
 STEP_X = (1.0, 1.4)
 STEP_H = 0.15 * S             # 6 cm
 CONE_XS = (2.2, 2.9, 3.6, 4.3, 5.0)
+CONE_Y = 0.35                 # koniler yol ekseninin iki yaninda, sirayla (hakem degistirebilir)
 SLIDER_X = 6.6
 SLIDER_W = 1.0 * S            # 0.4 m
 SLIDER_AMP = HALF + SLIDER_W / 2   # parkurun tamamen disina cikar
@@ -352,13 +353,21 @@ def build():
                      name='pool_ramp')                                  # giris
     course.slope_box((px0 + POOL_RAMP, -POOL_DEPTH), (px0, 0.0), ROW_A, ROAD_W, pool_mat,
                      name='pool_ramp')                                  # cikis
-    water = (f'<visual name="water"><pose>{(px0 + px1) / 2:.3f} 0 {-POOL_DEPTH / 2 - 0.005:.4f}'
-             f' 0 0 0</pose><geometry><box><size>{px1 - px0:.3f} {ROAD_W:.3f} '
-             f'{POOL_DEPTH - 0.01:.4f}</size></box></geometry>'
-             f'<material><ambient>0.15 0.35 0.7 0.55</ambient>'
-             f'<diffuse>0.15 0.35 0.7 0.55</diffuse></material>'
-             f'<transparency>0.45</transparency></visual>')
-    course.items.append(water)
+    # Havuz kaplamasi: acik mavi taban ve yan duvarlar (sadece gorsel). Bunlar olmadan havuz
+    # yukaridan kahverengi bir toprak cukuru gibi gorunur.
+    tile = color(0.55, 0.8, 0.95)
+    pcx, plen = (px0 + px1) / 2, px1 - px0
+    course.box((plen, ROAD_W, 0.004), (pcx, ROW_A, -POOL_DEPTH + 0.002, 0, 0, 0), tile,
+               collide=False, name='pool_floor')
+    for side in (-1, 1):
+        course.box((plen, 0.004, POOL_DEPTH), (pcx, side * (HALF - 0.002), -POOL_DEPTH / 2,
+                                               0, 0, 0), tile, collide=False, name='pool_wall')
+    # Su yuzeyi: ince, belirgin mavi, tek bir saydamlik degeri (renkte alfa yok). Renkteki alfa
+    # ile <transparency> birlikte kullanilinca su neredeyse tamamen gorunmez oluyordu.
+    course.box((plen - 0.01, ROAD_W - 0.01, 0.01), (pcx, ROW_A, -0.025, 0, 0, 0),
+               color(0.1, 0.4, 0.85), collide=False, name='water_surface')
+    course.items[-1] = course.items[-1].replace('</visual>',
+                                                '<transparency>0.35</transparency></visual>')
     fx = (px0 + px1) / 2
     for side in (-1, 1):                                            # yagmurlama cercevesi
         course.cylinder(0.015, 0.7, (fx, side * (BAR_Y + 0.12), 0.35, 0, 0, 0),
@@ -449,7 +458,7 @@ def build():
 
     # ---------------------------------------------------------------- 5) koniler
     for i, x in enumerate(CONE_XS):
-        y = ROW_B + (0.3 if i % 2 == 0 else -0.3)
+        y = ROW_B + (CONE_Y if i % 2 == 0 else -CONE_Y)
         includes.append(('traffic_cone', f'cone_{i + 1}', (x, y, 0, 0, 0, 0)))
         course.preview.append(('cone', (x, y), ''))
 
@@ -681,6 +690,76 @@ def write_water_yaml():
     return path
 
 
+def course_path():
+    """Test surucusunun izleyecegi yol: yol ekseni + slalom + bekleme noktalari.
+
+    Her nokta: (x, y, hiz m/s, asama, bekleme). Bekleme: 0 ya da 'stop:<saniye>' (stop
+    cizgisinde tam dur), 'slider' (kayar engelin gecmesini bekle), 'finish'.
+    """
+    pts = []
+
+    def add(x, y, v, stage, wait=''):
+        pts.append((round(x, 3), round(y, 3), v, stage, wait))
+
+    # A sirasi: -x yonunde
+    for x in (7.5, 7.0):
+        add(x, ROW_A, 0.25, 0)
+    for x in (6.6, 6.3, 5.9, 5.5, 5.2):
+        add(x, ROW_A, 0.20, 1)                                   # havuz: yavas
+    for x in (4.8, 4.2, 3.6):
+        add(x, ROW_A, 0.20, 2)                                   # cakil
+    for x in (2.8, 2.3, 1.8, 1.3, 0.8):
+        add(x, ROW_A, 0.18, 3)                                   # yan egim
+    add(0.0, ROW_A, 0.25, 3)
+    # Sol U donusu
+    cl = (0.0, (ROW_A + ROW_B) / 2)
+    for k in range(1, 12):
+        a = -math.pi / 2 - math.pi * k / 12
+        add(cl[0] + TURN_R * math.cos(a), cl[1] + TURN_R * math.sin(a), 0.22, 3)
+    # B sirasi: +x yonunde
+    add(0.2, ROW_B, 0.2, 4)
+    add(STEP_X[0] - 0.3, ROW_B, 0.15, 4)                         # engele dik yaklas
+    add((STEP_X[0] + STEP_X[1]) / 2, ROW_B, 0.15, 4)
+    add(STEP_X[1] + 0.3, ROW_B, 0.15, 4)
+    # Koniler iki sira halinde, yol ekseninden +-0.35 m'de: robot (0.42 m) iki siranin
+    # arasindan duz gecer (her yanda ~8 cm). Otonom kod gercek konileri LIDAR ile gorecek.
+    for x in [CONE_XS[0] - 0.5] + list(CONE_XS) + [CONE_XS[-1] + 0.5]:
+        add(x, ROW_B, 0.15, 5)
+    add(SLIDER_X - 0.75, ROW_B, 0.2, 6, 'slider')               # kayar engeli bekle
+    add(SLIDER_X + 0.6, ROW_B, 0.3, 6)
+    add(ROW_LEN, ROW_B, 0.25, 6)
+    # Sag U donusu
+    cr = (ROW_LEN, (ROW_B + ROW_C) / 2)
+    for k in range(1, 12):
+        a = -math.pi / 2 + math.pi * k / 12
+        add(cr[0] + TURN_R * math.cos(a), cr[1] + TURN_R * math.sin(a), 0.22, 6)
+    # C sirasi: -x yonunde
+    for x in (ROW_LEN, 7.6, 7.0, 6.4, 6.0):
+        add(x, ROW_C, 0.18, 7)                                   # tumsekler
+    _, (ra, rb, rc, rd) = ramp_profile()
+    add(ra + 0.3, ROW_C, 0.15, 8)
+    add((ra + rb) / 2, ROW_C, 0.15, 8, 'stop:2.5')               # cikis stop cizgisi
+    add(rb - 0.2, ROW_C, 0.15, 9)
+    add((rb + rc) / 2, ROW_C, 0.15, 9, 'stop:3.0')               # atis bolgesi
+    add(rc + 0.1, ROW_C, 0.12, 10)
+    add((rc + rd) / 2, ROW_C, 0.12, 10, 'stop:2.5')              # inis stop cizgisi
+    add(rd - 0.3, ROW_C, 0.2, 10)
+    add(FINISH_X - 0.1, ROW_C, 0.2, 11, 'finish')
+    return pts
+
+
+def write_path_yaml():
+    path = os.path.join(PKG, 'config', 'course_path.yaml')
+    with open(path, 'w') as f:
+        f.write('# make_teknofest_course.py tarafindan uretildi: test surucusunun yolu\n'
+                '# x, y, hiz (m/s), asama, bekleme (stop:<s> | slider | finish)\n'
+                'course_tester:\n  ros__parameters:\n    waypoints: [\n')
+        for x, y, v, stage, wait in course_path():
+            f.write(f'      "{x}, {y}, {v}, {stage}, {wait}",\n')
+        f.write('    ]\n')
+    return path
+
+
 def write_preview(course, signs):
     from PIL import Image, ImageDraw, ImageFont
     ppm = 40
@@ -765,6 +844,7 @@ def main():
     write_models()
     print('dunya   :', write_world(course, terrain, includes))
     print('su      :', write_water_yaml())
+    print('yol     :', write_path_yaml())
     print('gorunus :', write_preview(course, signs))
     print(f'parca sayisi: {course.n} (+{len(includes)} model)')
 
