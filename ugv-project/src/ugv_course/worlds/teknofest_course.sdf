@@ -23,6 +23,9 @@
             name="ignition::gazebo::systems::Sensors">
       <render_engine>ogre2</render_engine>
     </plugin>
+    <!-- IMU sensoru icin (robotun egimini ve yonunu olcer) -->
+    <plugin filename="ignition-gazebo-imu-system"
+            name="ignition::gazebo::systems::Imu"/>
     <!-- Yagmur icin parcacik sistemi -->
     <plugin filename="ignition-gazebo-particle-emitter2-system"
             name="ignition::gazebo::systems::ParticleEmitter2"/>

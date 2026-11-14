@@ -11,6 +11,12 @@ Parkur fizik testi (robot parkuru kendisi surer, takildigi asamayi raporlar):
     ros2 launch ugv_bringup course.launch.py tester:=true
     ros2 launch ugv_bringup course.launch.py tester:=true start:=accel   # hizlanma kosusu
 
+Otonom kosu (robot parkuru kendi sensorleriyle surer, atis yapar):
+    ros2 launch ugv_bringup course.launch.py mission:=true
+    ros2 launch ugv_bringup course.launch.py mission:=true start:=accel
+
+Hakem (varsayilan acik) her kosuyu sartnamenin puan tablosuna gore puanlar: referee:=false
+
 Hiz komutu su fizigi node'undan gecer: /cmd_vel -> water_physics -> /cmd_vel_gz -> Gazebo
 """
 
@@ -115,6 +121,26 @@ def launch_setup(context):
         condition=IfCondition(LaunchConfiguration('tester')),
     )
 
+    mission_on = LaunchConfiguration('mission')
+    mission = Node(
+        package='ugv_autonomy',
+        executable='mission',
+        name='mission',
+        output='screen',
+        parameters=[{'use_sim_time': True, 'run': start}],
+        condition=IfCondition(mission_on),
+    )
+
+    referee = Node(
+        package='ugv_course',
+        executable='referee',
+        name='referee',
+        output='screen',
+        parameters=[{'use_sim_time': True, 'run': start,
+                     'autonomous': mission_on.perform(context) == 'true'}],
+        condition=IfCondition(LaunchConfiguration('referee')),
+    )
+
     rviz = Node(
         package='rviz2',
         executable='rviz2',
@@ -129,7 +155,7 @@ def launch_setup(context):
         AppendEnvironmentVariable('IGN_GAZEBO_RESOURCE_PATH',
                                   os.path.join(course_share, 'models')),
         sim, water, slider, slider_bridge, sign_detector, target_detector, driver, tester,
-        rviz,
+        mission, referee, rviz,
     ]
 
 
@@ -144,5 +170,9 @@ def generate_launch_description():
                               description='true: surucu konsolunu ac (manuel kosu)'),
         DeclareLaunchArgument('tester', default_value='false',
                               description='true: parkur test surucusu robotu kendisi surer'),
+        DeclareLaunchArgument('mission', default_value='false',
+                              description='true: otonom kosu (gercek konumu kullanmaz)'),
+        DeclareLaunchArgument('referee', default_value='true',
+                              description='true: hakem puanlamasi'),
         OpaqueFunction(function=launch_setup),
     ])

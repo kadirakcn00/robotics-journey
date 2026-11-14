@@ -128,6 +128,8 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 - TEKNOFEST 2026 UGV competition course in Gazebo (all 11 stages, scaled ×0.4) with custom water physics and a moving obstacle
 - Driver station for the remote-controlled run: three camera views, hold-to-drive keyboard control with gears, turret and laser, emergency stop
 - Course tester that drives the whole course and reports the stage where the robot gets stuck
+- Referee node that scores a run by the specification's point table
+- Autonomous mission: LiDAR + IMU localization, cone avoidance, sliding-obstacle timing and visual-servo shooting
 
 ### UGV Simulation
 
@@ -147,9 +149,10 @@ The project explores how robot descriptions, coordinate frames, sensor data and 
 | TF2 | Manages coordinate frames and transformations. |
 | Odometry | Estimates the robot's movement. |
 | LiDAR | Provides distance measurements of the surroundings (front bumper, 20 cm high, ±90°). |
+| IMU | Body pitch/roll/yaw at 50 Hz; used for heading and to detect the pool and ramp slopes. |
 | Cameras | Front and rear driving cameras (69° FOV) and a narrow aiming camera (14° FOV) on a pan-tilt turret. |
 | Gazebo Fortress | Provides the physics simulation, diff-drive and LiDAR sensor. |
-| ros_gz_bridge | Bridges `/cmd_vel`, `/odom`, `/tf`, `/scan`, `/joint_states` and `/clock` between ROS 2 and Gazebo. |
+| ros_gz_bridge | Bridges `/cmd_vel`, `/odom`, `/tf`, `/scan`, `/imu`, `/joint_states` and `/clock` between ROS 2 and Gazebo. |
 | RViz2 | Visualizes the robot model and sensor data. |
 | slam_toolbox | Builds a 2D occupancy grid map from LiDAR scans and odometry. |
 | Nav2 | Localizes the robot on the map (AMCL), plans a path and drives it to a goal. |
@@ -165,7 +168,8 @@ ugv-project/src/
 ├── ugv_slam/          # slam_toolbox parameters + saved maps + sdf_to_map tool
 ├── ugv_navigation/    # Nav2 parameters + launch
 ├── ugv_perception/    # Stage sign + shooting target detection nodes (OpenCV)
-├── ugv_course/        # TEKNOFEST course world, water physics, sliding obstacle, course tester
+├── ugv_course/        # TEKNOFEST course world, water physics, sliding obstacle, course tester, referee
+├── ugv_autonomy/      # Autonomous mission: localization, obstacle avoidance, shooting
 ├── ugv_teleop/        # Driver station for the manual run (cameras, keyboard, turret, laser)
 ├── ugv_control/       # LiDAR obstacle avoidance node
 └── ugv_odometry/      # Hand-written odometry node (M2 exercise)
@@ -465,6 +469,32 @@ pkill -f "ign gazebo"
 
 The tester is not the autonomous run (it knows the true robot pose and the obstacle position); it validates the course and the robot's physics.
 
+### Referee
+
+The `referee` node starts with the course and scores the run by the specification's point table (Table 5): stage points, cone (−5) and sliding obstacle contacts, ramp stops (15 / 10 / 0), target detection, the best of three laser shots on the target rings (50 / 25 / 15, laser on for at least 1 s) and the −10 penalty for moving while the laser is on. It uses the ground-truth pose, the turret joint angles and the laser state, and publishes events and the running total on `/course/referee`:
+
+```bash
+ros2 topic echo /course/referee
+```
+
+On the acceleration track it reports the time over the line and the stopping distance.
+
+### Autonomous Run
+
+The `mission` node (package `ugv_autonomy`) drives the course on its own sensors only: wheel odometry, IMU, LiDAR and the cameras. It does not use the ground-truth pose or the obstacle positions.
+
+```bash
+ros2 launch ugv_bringup course.launch.py mission:=true
+ros2 launch ugv_bringup course.launch.py mission:=true start:=accel
+```
+
+- **Localization:** dead reckoning from odometry speed and IMU heading, corrected by matching LiDAR points to the known barrier map (weighted least squares), and re-synchronised on the pool entry and on the ramps, which the IMU pitch detects.
+- **Cones:** the cone positions are not known in advance; LiDAR points on the road are remembered and the robot shifts sideways to the free gap that clears the cones next to it and ahead of it.
+- **Sliding obstacle:** the LiDAR tracks the panel and the robot passes only when it is moving out of the road.
+- **Shooting:** coarse aim from the map, then visual servoing on the aiming camera (corrected for the laser sitting below the camera), then the laser is held on for 1.4 s.
+
+A 2D simulator in `ugv_autonomy/test` (ray-cast LiDAR, IMU, wheel slip, water drag, moving obstacle, referee) runs the mission end to end. It covers a normal run, bad odometry (5 % slip, 20 % turn loss), cones moved by the referee and different sliding-obstacle timings; turning the LiDAR/IMU corrections off makes the bad-odometry run fail. Cones placed so close that the gap between them is narrower than the robot are a known limit.
+
 Start on the acceleration track instead:
 
 ```bash
@@ -491,11 +521,18 @@ cd ugv-project/src/ugv_perception
 python3 -m pytest test/test_detection.py
 ```
 
-Run the course tests (water physics, sliding obstacle, and a full-course simulation of the tester checking road limits, cone and obstacle clearance and the stop-line waits):
+Run the course tests (water physics, sliding obstacle, and a full-course simulation of the tester checking road limits, cone and obstacle clearance and the stop-line waits, plus the referee scoring):
 
 ```bash
 cd ugv-project/src/ugv_course
 python3 -m pytest test/
+```
+
+Run the autonomy tests (unit tests and full simulated runs, a few minutes):
+
+```bash
+cd ugv-project/src/ugv_autonomy
+PYTHONPATH=.:../ugv_course python3 -m pytest test/test_mission.py
 ```
 
 Run the driver station logic tests:
@@ -521,6 +558,7 @@ This repository is continuously evolving as I explore more advanced robotics con
 | M4 | Navigation2 (Nav2) | Completed |
 | M5 | Camera & Object Detection | Completed |
 | M6 | TEKNOFEST 2026 UGV Course Simulation | Completed |
+| M7 | Referee & Autonomous Mission | Completed |
 
 ---
 

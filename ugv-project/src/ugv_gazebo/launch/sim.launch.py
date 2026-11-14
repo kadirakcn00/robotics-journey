@@ -96,6 +96,7 @@ def generate_launch_description():
         '/tf@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V',
         '/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan',
         '/joint_states@sensor_msgs/msg/JointState[ignition.msgs.Model',
+        '/imu@sensor_msgs/msg/Imu[ignition.msgs.IMU',
     ])
 
     camera_bridge = bridge('bridge_cameras', [

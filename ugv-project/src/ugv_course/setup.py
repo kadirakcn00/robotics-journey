@@ -39,6 +39,7 @@ setup(
             'water_physics = ugv_course.water_physics_node:main',
             'sliding_obstacle = ugv_course.sliding_obstacle_node:main',
             'course_tester = ugv_course.course_tester_node:main',
+            'referee = ugv_course.referee_node:main',
         ],
     },
 )
